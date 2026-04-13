@@ -21,7 +21,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 
 st.set_page_config(
     page_title="EDA Dashboard",
-    page_icon="🧠",
+    page_icon="",
     layout="wide",
 )
 
@@ -633,7 +633,7 @@ def render_models(df):
     all_cols = df.columns.tolist()
     
     if not numeric_cols:
-        st.error("⚠️ No numeric columns found. Models require numeric features.")
+        st.error(" No numeric columns found. Models require numeric features.")
         return
     
     # Feature and Target Selection with auto-defaults
@@ -982,7 +982,7 @@ def render_models(df):
                     })
                     
             except Exception as e:
-                st.warning(f"⚠️ {name} training failed: {str(e)}")
+                st.warning(f" {name} training failed: {str(e)}")
             
             progress_bar.progress((idx + 1) / len(models))
         
@@ -1245,7 +1245,7 @@ def main():
         render_missing_values(df)
     elif activity == "Preprocess Data":
         render_preprocess(df)
-    elif activity == "🤖 ML Models":
+    elif activity == " ML Models":
         render_models(df)
 
 
