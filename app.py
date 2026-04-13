@@ -307,7 +307,7 @@ def dataset_metrics(df):
 
 
 def render_basic_eda(df):
-    st.subheader("🔍 Exploratory Data Analysis")
+    st.subheader("Exploratory Data Analysis")
     st.write("Use the controls below to inspect the uploaded dataset.")
 
     all_columns = df.columns.tolist()
@@ -316,29 +316,29 @@ def render_basic_eda(df):
 
     left, right = st.columns([2, 1])
     with left:
-        if st.checkbox("📏 Show Shape"):
+        if st.checkbox("Show Shape"):
             st.write(df.shape)
 
-        if st.checkbox("📋 Show Columns"):
+        if st.checkbox("Show Columns"):
             st.write(all_columns)
 
-        if st.checkbox("🎯 Show Data Types"):
+        if st.checkbox("Show Data Types"):
             st.write(df.dtypes)
 
-        if st.checkbox("❌ Null value count"):
+        if st.checkbox("Null value count"):
             st.write(df.isnull().sum())
 
-        if st.checkbox("📊 Summary"):
+        if st.checkbox("Summary"):
             st.write(df.describe(include="all").T)
 
-        if st.checkbox("✏️ Show Selected Columns"):
+        if st.checkbox("Show Selected Columns"):
             selected_columns = st.multiselect("Select Columns", all_columns)
             if selected_columns:
                 st.dataframe(df[selected_columns])
             else:
                 st.info("Pick one or more columns.")
 
-        if st.checkbox("🏷️ Value Counts For categorical values"):
+        if st.checkbox("Value Counts For categorical values"):
             if categorical_columns:
                 selected_column = st.selectbox("Select a Column", categorical_columns, key="value_counts_col")
                 st.write(df[selected_column].value_counts())
@@ -346,18 +346,18 @@ def render_basic_eda(df):
                 st.warning("No categorical columns available.")
 
     with right:
-        st.markdown("<h4 style='color: #667eea; text-align: center;'>📊 Top-level overview</h4>", unsafe_allow_html=True)
+        st.markdown("<h4 style='color: #667eea; text-align: center;'>Top-level overview</h4>", unsafe_allow_html=True)
         st.metric("Rows", df.shape[0])
         st.metric("Columns", df.shape[1])
         st.metric("Numeric", len(numeric_columns))
         st.metric("Categorical", len(categorical_columns))
 
         if categorical_columns:
-            st.markdown("<h4 style='color: #764ba2; text-align: center;'>🏷️ Categories</h4>", unsafe_allow_html=True)
+            st.markdown("<h4 style='color: #764ba2; text-align: center;'>Categories</h4>", unsafe_allow_html=True)
             st.write(categorical_columns)
 
     st.markdown("---")
-    if st.checkbox("🔥 Show correlation heatmap"):
+    if st.checkbox("Show correlation heatmap"):
         numeric_df = df.select_dtypes(include=[np.number])
         if numeric_df.shape[1] > 1:
             fig, ax = plt.subplots(figsize=(8, 6))
@@ -371,89 +371,89 @@ def render_basic_eda(df):
 
 
 def render_sweetviz(df):
-    st.subheader("✨ Sweetviz Report")
+    st.subheader("Sweetviz Report")
     st.write("Generate an interactive Sweetviz report for the uploaded dataset.")
-    if st.button("🚀 Run Sweetviz analysis"):
+    if st.button("Run Sweetviz analysis"):
         report = sv.analyze(df)
         report.show_html("sweetviz_report.html")
         render_html_report("sweetviz_report.html")
 
 
 def render_plots(df):
-    st.subheader("📊 Automatic Plot Gallery")
+    st.subheader("Automatic Plot Gallery")
     st.write("Important plots are generated automatically for the dataset.")
 
     numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
     categorical_columns = df.select_dtypes(exclude=[np.number]).columns.tolist()
 
-    selected_numeric = st.multiselect("📈 Numeric columns", numeric_columns, default=numeric_columns[:3])
-    selected_categorical = st.multiselect("🏷️ Categorical columns", categorical_columns, default=categorical_columns[:1])
+    selected_numeric = st.multiselect("Numeric columns", numeric_columns, default=numeric_columns[:3])
+    selected_categorical = st.multiselect("Categorical columns", categorical_columns, default=categorical_columns[:1])
 
     if not selected_numeric and not selected_categorical:
         st.warning("Select at least one numeric or categorical column to render the plot gallery.")
         return
 
     if selected_numeric:
-        with st.expander("📊 Histograms"):
+        with st.expander("Histograms"):
             for col in selected_numeric:
                 fig, ax = plt.subplots(figsize=(8, 3))
                 sns.histplot(df[col].dropna(), kde=True, ax=ax, color='#667eea')
-                ax.set_title(f"📊 Histogram: {col}", fontsize=14, fontweight='bold', color='#667eea')
+                ax.set_title(f"Histogram: {col}", fontsize=14, fontweight='bold', color='#667eea')
                 st.pyplot(fig)
 
-        with st.expander("📦 Boxplots"):
+        with st.expander("Boxplots"):
             fig, ax = plt.subplots(figsize=(8, max(4, len(selected_numeric) * 1.5)))
             sns.boxplot(data=df[selected_numeric], orient="h", ax=ax, palette='Set2')
-            ax.set_title("📦 Boxplot for numeric columns", fontsize=14, fontweight='bold', color='#667eea')
+            ax.set_title("Boxplot for numeric columns", fontsize=14, fontweight='bold', color='#667eea')
             st.pyplot(fig)
 
         if len(selected_numeric) >= 2:
-            with st.expander("🔥 Correlation heatmap"):
+            with st.expander("Correlation heatmap"):
                 corr_df = df[selected_numeric].corr()
                 fig, ax = plt.subplots(figsize=(8, 6))
                 sns.heatmap(corr_df, annot=True, cmap="coolwarm", ax=ax)
-                ax.set_title("🔥 Correlation matrix", fontsize=14, fontweight='bold', color='#667eea')
+                ax.set_title("Correlation matrix", fontsize=14, fontweight='bold', color='#667eea')
                 st.pyplot(fig)
 
-            with st.expander("🎯 Scatter matrix"):
+            with st.expander("Scatter matrix"):
                 pair_cols = selected_numeric[:4]
                 fig = pd.plotting.scatter_matrix(df[pair_cols].dropna(), figsize=(10, 10), diagonal="kde", color='#667eea')
                 st.pyplot(fig[0, 0].figure)
 
     if selected_categorical:
-        with st.expander("📈 Categorical counts"):
+        with st.expander("Categorical counts"):
             for col in selected_categorical:
                 fig, ax = plt.subplots(figsize=(8, 4))
                 df[col].value_counts().nlargest(10).plot(kind="bar", ax=ax, color='#f5576c')
-                ax.set_title(f"📈 Value counts: {col}", fontsize=14, fontweight='bold', color='#667eea')
+                ax.set_title(f"Value counts: {col}", fontsize=14, fontweight='bold', color='#667eea')
                 ax.set_ylabel("Count", fontweight='bold')
                 ax.set_xlabel(col, fontweight='bold')
                 st.pyplot(fig)
 
     if selected_numeric:
-        with st.expander("📉 Line chart for numeric series"):
+        with st.expander("Line chart for numeric series"):
             fig, ax = plt.subplots(figsize=(10, 4))
             df[selected_numeric].dropna().plot(ax=ax, color=['#667eea', '#f5576c', '#43e97b', '#fa709a'][:len(selected_numeric)], linewidth=2.5)
-            ax.set_title("📉 Line chart for selected numeric columns", fontsize=14, fontweight='bold', color='#667eea')
+            ax.set_title("Line chart for selected numeric columns", fontsize=14, fontweight='bold', color='#667eea')
             ax.legend(loc='best', framealpha=0.9)
             st.pyplot(fig)
 
 
 def render_preprocess(df):
-    st.subheader("✨ Preprocessed Data")
+    st.subheader("Preprocessed Data")
     st.write("This section automatically presents the cleaned dataset without extra selection options.")
 
     clean_df = df.dropna().reset_index(drop=True)
     removed_rows = df.shape[0] - clean_df.shape[0]
 
     if removed_rows > 0:
-        st.success(f"✅ Removed {removed_rows} rows with missing values.")
+        st.success(f"Removed {removed_rows} rows with missing values.")
     else:
-        st.success("✅ No missing values found; data is already clean.")
+        st.success("No missing values found; data is already clean.")
 
-    st.markdown("<h4 style='color: #667eea;'>📋 Processed dataset preview</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color: #667eea;'>Processed dataset preview</h4>", unsafe_allow_html=True)
     st.dataframe(clean_df.head(20), use_container_width=True)
-    st.markdown("<h4 style='color: #764ba2;'>📊 Processed dataset details</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color: #764ba2;'>Processed dataset details</h4>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
         st.metric("Rows", clean_df.shape[0])
@@ -464,7 +464,7 @@ def render_preprocess(df):
 
 
 def render_missing_values(df):
-    st.subheader("📊 Handle Missing Values")
+    st.subheader("Handle Missing Values")
     st.write("Analyze and manage missing data in your dataset with multiple strategies.")
     
     # Missing value overview
@@ -473,18 +473,18 @@ def render_missing_values(df):
     missing_percent = (missing_vals / (df.shape[0] * df.shape[1])) * 100
     
     with col1:
-        st.metric("🔴 Total Missing Cells", missing_vals)
+        st.metric("Total Missing Cells", missing_vals)
     with col2:
-        st.metric("📉 Missing %", f"{missing_percent:.2f}%")
+        st.metric("Missing %", f"{missing_percent:.2f}%")
     with col3:
-        st.metric("✅ Complete Rows", (df.dropna().shape[0]))
+        st.metric("Complete Rows", (df.dropna().shape[0]))
     with col4:
-        st.metric("⚠️ Affected Columns", df.columns[df.isnull().any()].shape[0])
+        st.metric("Affected Columns", df.columns[df.isnull().any()].shape[0])
     
     st.markdown("---")
     
     # Missing value visualization
-    st.markdown("<h4 style='color: #667eea;'>🔍 Missing Value Pattern</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color: #667eea;'>Missing Value Pattern</h4>", unsafe_allow_html=True)
     col1, col2 = st.columns([2, 1])
     
     with col1:
@@ -497,10 +497,10 @@ def render_missing_values(df):
             ax.grid(axis='x', alpha=0.3)
             st.pyplot(fig)
         else:
-            st.success("✅ No missing values detected!")
+            st.success("No missing values detected!")
     
     with col1:
-        st.markdown("<h4 style='color: #764ba2;'>📊 Missing Value Percentage</h4>", unsafe_allow_html=True)
+        st.markdown("<h4 style='color: #764ba2;'>Missing Value Percentage</h4>", unsafe_allow_html=True)
         missing_percent_data = (df.isnull().sum() / len(df)) * 100
         if missing_percent_data.sum() > 0:
             fig, ax = plt.subplots(figsize=(10, 4))
@@ -513,7 +513,7 @@ def render_missing_values(df):
     st.markdown("---")
     
     # Handling strategies
-    st.markdown("<h4 style='color: #667eea;'>🛠️ Choose Handling Strategy</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color: #667eea;'>Choose Handling Strategy</h4>", unsafe_allow_html=True)
     
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     categorical_cols = df.select_dtypes(exclude=[np.number]).columns.tolist()
@@ -523,7 +523,7 @@ def render_missing_values(df):
         st.info("No columns with missing values found!")
         return
     
-    strategy = st.selectbox("🎯 Select a strategy", [
+    strategy = st.selectbox("Select a strategy", [
         "Drop rows with missing values",
         "Fill with mean (numeric columns)",
         "Fill with median (numeric columns)",
@@ -538,25 +538,25 @@ def render_missing_values(df):
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        st.markdown("<h4 style='color: #764ba2;'>👁️ Preview of Processed Data</h4>", unsafe_allow_html=True)
+        st.markdown("<h4 style='color: #764ba2;'>Preview of Processed Data</h4>", unsafe_allow_html=True)
         
         if strategy == "Drop rows with missing values":
             processed_df = df.dropna().reset_index(drop=True)
-            st.info(f"📊 Removed {df.shape[0] - processed_df.shape[0]} rows with missing values")
+            st.info(f"Removed {df.shape[0] - processed_df.shape[0]} rows with missing values")
             
         elif strategy == "Fill with mean (numeric columns)":
             processed_df = df.copy()
             for col in numeric_cols:
                 if processed_df[col].isnull().sum() > 0:
                     processed_df[col].fillna(processed_df[col].mean(), inplace=True)
-            st.info("📈 Filled numeric columns with mean values")
+            st.info("Filled numeric columns with mean values")
             
         elif strategy == "Fill with median (numeric columns)":
             processed_df = df.copy()
             for col in numeric_cols:
                 if processed_df[col].isnull().sum() > 0:
                     processed_df[col].fillna(processed_df[col].median(), inplace=True)
-            st.info("📊 Filled numeric columns with median values")
+            st.info("Filled numeric columns with median values")
             
         elif strategy == "Fill with mode (most frequent)":
             processed_df = df.copy()
@@ -565,35 +565,35 @@ def render_missing_values(df):
                     mode_val = processed_df[col].mode()
                     if len(mode_val) > 0:
                         processed_df[col].fillna(mode_val[0], inplace=True)
-            st.info("🏷️ Filled columns with mode (most frequent value)")
+            st.info("Filled columns with mode (most frequent value)")
             
         elif strategy == "Forward fill":
             processed_df = df.fillna(method='ffill').fillna(method='bfill')
-            st.info("➡️ Applied forward fill and then backward fill")
+            st.info("Applied forward fill and then backward fill")
             
         elif strategy == "Backward fill":
             processed_df = df.fillna(method='bfill').fillna(method='ffill')
-            st.info("⬅️ Applied backward fill and then forward fill")
+            st.info("Applied backward fill and then forward fill")
             
         elif strategy == "Linear interpolation (numeric only)":
             processed_df = df.copy()
             for col in numeric_cols:
                 processed_df[col] = processed_df[col].interpolate(method='linear')
-            st.info("📈 Applied linear interpolation to numeric columns")
+            st.info("Applied linear interpolation to numeric columns")
             
         elif strategy == "Custom value fill":
-            fill_value = st.text_input("✏️ Enter value to fill missing data with:", "0")
+            fill_value = st.text_input("Enter value to fill missing data with:", "0")
             try:
                 processed_df = df.fillna(fill_value)
-                st.info(f"✅ Filled missing values with: {fill_value}")
+                st.info(f"Filled missing values with: {fill_value}")
             except:
-                st.error("❌ Invalid fill value")
+                st.error("Invalid fill value")
                 return
         
         st.dataframe(processed_df.head(15), use_container_width=True)
     
     with col2:
-        st.markdown("<h4 style='color: #764ba2; text-align: center;'>📈 Statistics</h4>", unsafe_allow_html=True)
+        st.markdown("<h4 style='color: #764ba2; text-align: center;'>Statistics</h4>", unsafe_allow_html=True)
         remaining_missing = processed_df.isnull().sum().sum()
         st.metric("Remaining Missing Values", remaining_missing)
         st.metric("Rows After Processing", processed_df.shape[0])
@@ -604,29 +604,29 @@ def render_missing_values(df):
     # Download processed data
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown("<h4 style='color: #667eea;'>💾 Export Processed Data</h4>", unsafe_allow_html=True)
+        st.markdown("<h4 style='color: #667eea;'>Export Processed Data</h4>", unsafe_allow_html=True)
         download_csv(processed_df, filename="handled_missing_values.csv")
     
     with col2:
-        if st.button("📋 Show Processing Summary"):
+        if st.button("Show Processing Summary"):
             st.markdown(f"""
                 <div style='background: linear-gradient(135deg, #667eea15, #764ba215); padding: 15px; border-radius: 10px; border-left: 4px solid #667eea;'>
             <b>Processing Summary:</b><br>
-            📊 Original rows: <b>{df.shape[0]}</b><br>
-            ✅ Final rows: <b>{processed_df.shape[0]}</b><br>
-            ❌ Rows removed: <b>{df.shape[0] - processed_df.shape[0]}</b><br>
-            🔴 Original missing values: <b>{df.isnull().sum().sum()}</b><br>
-            ✨ Final missing values: <b>{processed_df.isnull().sum().sum()}</b>
+            Original rows: <b>{df.shape[0]}</b><br>
+            Final rows: <b>{processed_df.shape[0]}</b><br>
+            Rows removed: <b>{df.shape[0] - processed_df.shape[0]}</b><br>
+            Original missing values: <b>{df.isnull().sum().sum()}</b><br>
+            Final missing values: <b>{processed_df.isnull().sum().sum()}</b>
             </div>
             """, unsafe_allow_html=True)
 
 
 def render_models(df):
-    st.subheader("🤖 Machine Learning Models")
+    st.subheader("Machine Learning Models")
     st.write("Train and compare multiple ML models on your dataset. Select features and target column to get started.")
     
     # Data Preparation
-    st.markdown("<h4 style='color: #667eea;'>📊 Model Configuration</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color: #667eea;'>Model Configuration</h4>", unsafe_allow_html=True)
     
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     categorical_cols = df.select_dtypes(exclude=[np.number]).columns.tolist()
@@ -660,22 +660,22 @@ def render_models(df):
         )
     
     if not selected_features:
-        st.error("❌ Please select at least one feature column")
+        st.error("Please select at least one feature column")
         return
     
     if target_col in selected_features:
-        st.error("❌ Target column cannot be a feature column")
+        st.error("Target column cannot be a feature column")
         return
     
-    # 📊 INSIGHT SECTION
+    # INSIGHT SECTION
     st.markdown("---")
-    st.markdown("<h4 style='color: #667eea;'>🔍 Dataset Insights & Analysis Preview</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color: #667eea;'>Dataset Insights & Analysis Preview</h4>", unsafe_allow_html=True)
     
     # Create insight columns
     insight_col1, insight_col2 = st.columns(2)
     
     with insight_col1:
-        st.markdown("<h5 style='color: #667eea;'>📈 Selected Features Overview</h5>", unsafe_allow_html=True)
+        st.markdown("<h5 style='color: #667eea;'>Selected Features Overview</h5>", unsafe_allow_html=True)
         
         # Feature insights
         feature_insights = []
@@ -695,7 +695,7 @@ def render_models(df):
         
         # Feature correlation preview
         if len(selected_features) > 1:
-            st.markdown("<h6 style='color: #764ba2;'>🔗 Feature Correlations</h6>", unsafe_allow_html=True)
+            st.markdown("<h6 style='color: #764ba2;'>Feature Correlations</h6>", unsafe_allow_html=True)
             corr_matrix = df[selected_features].corr()
             fig, ax = plt.subplots(figsize=(6, 4))
             fig.patch.set_facecolor('#FAFBFF')
@@ -710,7 +710,7 @@ def render_models(df):
             st.pyplot(fig)
     
     with insight_col2:
-        st.markdown("<h5 style='color: #764ba2;'>🎯 Target Column Analysis</h5>", unsafe_allow_html=True)
+        st.markdown("<h5 style='color: #764ba2;'>Target Column Analysis</h5>", unsafe_allow_html=True)
         
         # Target insights
         target_data = df[target_col].dropna()
@@ -747,7 +747,7 @@ def render_models(df):
                 st.markdown(f"**{key}:** {value}")
         
         # Target distribution visualization
-        st.markdown("<h6 style='color: #667eea;'>📊 Target Distribution</h6>", unsafe_allow_html=True)
+        st.markdown("<h6 style='color: #667eea;'>Target Distribution</h6>", unsafe_allow_html=True)
         
         fig, ax = plt.subplots(figsize=(6, 4))
         fig.patch.set_facecolor('#FAFBFF')
@@ -773,7 +773,7 @@ def render_models(df):
     
     # Expected Results Preview
     st.markdown("---")
-    st.markdown("<h5 style='color: #667eea;'>🎯 Expected Model Results</h5>", unsafe_allow_html=True)
+    st.markdown("<h5 style='color: #667eea;'>Expected Model Results</h5>", unsafe_allow_html=True)
     
     result_col1, result_col2, result_col3 = st.columns(3)
     
@@ -781,7 +781,7 @@ def render_models(df):
         st.markdown(f"""
         <div style='background: linear-gradient(135deg, #E3F2FD 0%, #F3E5F5 100%); 
                     padding: 15px; border-radius: 10px; border-left: 4px solid #5DA9E8;'>
-            <h6 style='color: #1565C0; margin: 0;'>📊 Problem Type</h6>
+            <h6 style='color: #1565C0; margin: 0;'>Problem Type</h6>
             <p style='color: #424242; margin: 5px 0; font-weight: 600;'>{problem_type_insight}</p>
             <small style='color: #666;'>Based on target column analysis</small>
         </div>
@@ -792,7 +792,7 @@ def render_models(df):
         st.markdown(f"""
         <div style='background: linear-gradient(135deg, #FFF3E0 0%, #FCE4EC 100%); 
                     padding: 15px; border-radius: 10px; border-left: 4px solid #FFB347;'>
-            <h6 style='color: #E65100; margin: 0;'>🤖 Models to Train</h6>
+            <h6 style='color: #E65100; margin: 0;'>Models to Train</h6>
             <p style='color: #424242; margin: 5px 0; font-weight: 600;'>{models_count} ML Models</p>
             <small style='color: #666;'>Auto-selected for {problem_type_insight.lower()}</small>
         </div>
@@ -807,32 +807,32 @@ def render_models(df):
         st.markdown(f"""
         <div style='background: linear-gradient(135deg, #E8F5E9 0%, #F1F8E9 100%); 
                     padding: 15px; border-radius: 10px; border-left: 4px solid #66BB6A;'>
-            <h6 style='color: #2E7D32; margin: 0;'>🎯 Expected Output</h6>
+            <h6 style='color: #2E7D32; margin: 0;'>Expected Output</h6>
             <p style='color: #424242; margin: 5px 0; font-size: 12px;'>{expected_output}</p>
         </div>
         """, unsafe_allow_html=True)
     
     # Quick stats summary
     st.markdown("---")
-    st.markdown("<h6 style='color: #667eea;'>📋 Quick Dataset Summary</h6>", unsafe_allow_html=True)
+    st.markdown("<h6 style='color: #667eea;'>Quick Dataset Summary</h6>", unsafe_allow_html=True)
     
     summary_col1, summary_col2, summary_col3, summary_col4 = st.columns(4)
     
     with summary_col1:
-        st.metric("🔢 Features Selected", len(selected_features))
+        st.metric("Features Selected", len(selected_features))
     
     with summary_col2:
         valid_samples = len(df.dropna(subset=selected_features + [target_col]))
-        st.metric("✅ Valid Samples", valid_samples)
+        st.metric("Valid Samples", valid_samples)
     
     with summary_col3:
         if problem_type_insight == 'Classification':
-            st.metric("🏷️ Target Classes", len(target_data.unique()))
+            st.metric("Target Classes", len(target_data.unique()))
         else:
-            st.metric("📈 Target Range", f"{target_data.min():.1f} - {target_data.max():.1f}")
+            st.metric("Target Range", f"{target_data.min():.1f} - {target_data.max():.1f}")
     
     with summary_col4:
-        st.metric("📊 Data Quality", f"{(1 - df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100:.1f}%")
+        st.metric("Data Quality", f"{(1 - df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100:.1f}%")
     
     st.markdown("---")
     
@@ -847,7 +847,7 @@ def render_models(df):
         y = y[valid_idx].reset_index(drop=True)
         
         if len(X) < 10:
-            st.error(f"❌ Not enough valid data. Found {len(X)} valid samples, need at least 10.")
+            st.error(f"Not enough valid data. Found {len(X)} valid samples, need at least 10.")
             return
         
         # Detect problem type
@@ -875,18 +875,18 @@ def render_models(df):
         # Display data info
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("📊 Samples", len(X))
+            st.metric("Samples", len(X))
         with col2:
-            st.metric("🔢 Features", len(selected_features))
+            st.metric("Features", len(selected_features))
         with col3:
             if problem_type == 'classification':
-                st.metric("🏷️ Classes", n_classes)
+                st.metric("Classes", n_classes)
             else:
-                st.metric("📈 Range", f"{y.min():.2f} - {y.max():.2f}")
+                st.metric("Range", f"{y.min():.2f} - {y.max():.2f}")
         with col4:
-            st.metric("✅ Valid Data %", f"{(len(X)/len(df))*100:.1f}%")
+            st.metric("Valid Data %", f"{(len(X)/len(df))*100:.1f}%")
         
-        st.info(f"🎯 Detected: **{problem_type.upper()}** problem with target '{target_col}'")
+        st.info(f"Detected: **{problem_type.upper()}** problem with target '{target_col}'")
         st.markdown("---")
         
         # Train-test split
@@ -906,7 +906,7 @@ def render_models(df):
         X_test_scaled = scaler.transform(X_test)
         
         st.markdown("---")
-        st.markdown("<h4 style='color: #667eea;'>🚀 Training Models...</h4>", unsafe_allow_html=True)
+        st.markdown("<h4 style='color: #667eea;'>Training Models...</h4>", unsafe_allow_html=True)
         
         # Define models based on problem type
         if problem_type == 'classification':
@@ -990,14 +990,14 @@ def render_models(df):
         progress_bar.empty()
         
         if not results:
-            st.error("❌ No models trained successfully")
+            st.error("No models trained successfully")
             return
         
         results_df = pd.DataFrame(results)
-        st.success(f"✅ Successfully trained {len(results)} models!")
+        st.success(f"Successfully trained {len(results)} models!")
         
         st.markdown("---")
-        st.markdown("<h4 style='color: #764ba2;'>📊 Model Performance Comparison</h4>", unsafe_allow_html=True)
+        st.markdown("<h4 style='color: #764ba2;'>Model Performance Comparison</h4>", unsafe_allow_html=True)
         
         # Show results table
         display_df = results_df.drop('Score', axis=1)
@@ -1015,10 +1015,10 @@ def render_models(df):
         
         with col1:
             if problem_type == 'classification':
-                st.markdown("<h5 style='color: #667eea;'>📈 Accuracy Comparison</h5>", unsafe_allow_html=True)
+                st.markdown("<h5 style='color: #667eea;'>Accuracy Comparison</h5>", unsafe_allow_html=True)
                 metric_col = 'Accuracy'
             else:
-                st.markdown("<h5 style='color: #667eea;'>📈 R² Score Comparison</h5>", unsafe_allow_html=True)
+                st.markdown("<h5 style='color: #667eea;'>R² Score Comparison</h5>", unsafe_allow_html=True)
                 metric_col = 'R² Score'
             
             # Parse scores for plotting
@@ -1051,7 +1051,7 @@ def render_models(df):
             st.pyplot(fig)
         
         with col2:
-            st.markdown("<h5 style='color: #764ba2;'>🏆 Best Performing Model</h5>", unsafe_allow_html=True)
+            st.markdown("<h5 style='color: #764ba2;'>Best Performing Model</h5>", unsafe_allow_html=True)
             
             if problem_type == 'classification':
                 score_label = f"{best_score*100:.2f}% Accuracy"
@@ -1066,7 +1066,7 @@ def render_models(df):
             </div>
             """, unsafe_allow_html=True)
             
-            st.markdown("<h5 style='color: #667eea; margin-top: 20px;'>📊 Best Model Metrics</h5>", 
+            st.markdown("<h5 style='color: #667eea; margin-top: 20px;'>Best Model Metrics</h5>", 
                        unsafe_allow_html=True)
             best_row = results_df.loc[best_idx]
             
@@ -1081,13 +1081,13 @@ def render_models(df):
         st.markdown("---")
         
         # Detailed analysis for best model
-        st.markdown("<h4 style='color: #667eea;'>🔍 Detailed Analysis - Best Model</h4>", unsafe_allow_html=True)
+        st.markdown("<h4 style='color: #667eea;'>Detailed Analysis - Best Model</h4>", unsafe_allow_html=True)
         
         if problem_type == 'classification' and n_classes <= 10:
             col1, col2 = st.columns([1.5, 1])
             
             with col1:
-                st.markdown("<h5 style='color: #667eea;'>🔥 Confusion Matrix</h5>", unsafe_allow_html=True)
+                st.markdown("<h5 style='color: #667eea;'>Confusion Matrix</h5>", unsafe_allow_html=True)
                 best_predictions = predictions[best_model_name]
                 cm = confusion_matrix(y_test, best_predictions)
                 
@@ -1109,7 +1109,7 @@ def render_models(df):
                 st.pyplot(fig)
             
             with col2:
-                st.markdown("<h5 style='color: #764ba2;'>📈 Classification Report</h5>", unsafe_allow_html=True)
+                st.markdown("<h5 style='color: #764ba2;'>Classification Report</h5>", unsafe_allow_html=True)
                 best_predictions = predictions[best_model_name]
                 report = classification_report(y_test, best_predictions, target_names=target_classes, 
                                              output_dict=True)
@@ -1120,7 +1120,7 @@ def render_models(df):
             col1, col2 = st.columns(2)
             
             with col1:
-                st.markdown("<h5 style='color: #667eea;'>🎯 Predicted vs Actual</h5>", unsafe_allow_html=True)
+                st.markdown("<h5 style='color: #667eea;'>Predicted vs Actual</h5>", unsafe_allow_html=True)
                 best_predictions = predictions[best_model_name]
                 
                 fig, ax = plt.subplots(figsize=(8, 6))
@@ -1143,7 +1143,7 @@ def render_models(df):
                 st.pyplot(fig)
             
             with col2:
-                st.markdown("<h5 style='color: #764ba2;'>📊 Residuals Analysis</h5>", unsafe_allow_html=True)
+                st.markdown("<h5 style='color: #764ba2;'>Residuals Analysis</h5>", unsafe_allow_html=True)
                 best_predictions = predictions[best_model_name]
                 residuals = y_test - best_predictions
                 
@@ -1166,9 +1166,9 @@ def render_models(df):
         
         # Model comparison details
         st.markdown("---")
-        st.markdown("<h4 style='color: #764ba2;'>🔄 All Models Summary</h4>", unsafe_allow_html=True)
+        st.markdown("<h4 style='color: #764ba2;'>All Models Summary</h4>", unsafe_allow_html=True)
         
-        with st.expander("📋 Detailed Results for All Models"):
+        with st.expander("Detailed Results for All Models"):
             st.dataframe(results_df.drop('Score', axis=1), use_container_width=True)
             
             col1, col2 = st.columns(2)
@@ -1180,8 +1180,8 @@ def render_models(df):
                 st.markdown(f"**Testing Data Size:** {len(X_test)}")
     
     except Exception as e:
-        st.error(f"❌ An error occurred: {str(e)}")
-        st.info("💡 Tip: Make sure your data is properly formatted and has no issues.")
+        st.error(f"An error occurred: {str(e)}")
+        st.info("Tip: Make sure your data is properly formatted and has no issues.")
 
 
 def main():
@@ -1189,7 +1189,7 @@ def main():
     <h2 style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
                background-clip: text; text-align: center; padding: 10px;'>
-    🚀 Activity selector
+    Activity selector
     </h2>
     """, unsafe_allow_html=True)
     st.sidebar.markdown("""
@@ -1198,17 +1198,17 @@ def main():
     </p>
     """, unsafe_allow_html=True)
 
-    uploaded_file = st.sidebar.file_uploader("📁 Upload CSV file", type=["csv"])
+    uploaded_file = st.sidebar.file_uploader("Upload CSV file", type=["csv"])
     activity = st.sidebar.radio(
-        "📊 Choose view",
-        ["EDA(basic)", "Sweetviz", "Plots", "Handle Missing Values", "Preprocess Data", "🤖 ML Models"],
+        "Choose view",
+        ["EDA(basic)", "Sweetviz", "Plots", "Handle Missing Values", "Preprocess Data", "ML Models"],
     )
 
     if uploaded_file is None:
         st.markdown("""
         <h1 style='text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                    -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
-                   background-clip: text;'>🧠 EDA Dashboard</h1>
+                   background-clip: text;'>EDA Dashboard</h1>
         """, unsafe_allow_html=True)
         st.markdown(
             "<h4 style='text-align: center; color: #764ba2;'>Use the sidebar to upload a CSV file and explore the dataset using multiple analysis panels.</h4>",
@@ -1217,9 +1217,9 @@ def main():
         st.markdown("""
         <div style='background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(245, 87, 108, 0.1)); 
                     padding: 30px; border-radius: 15px; border-left: 5px solid #667eea; text-align: center;'>
-            <h3 style='color: #667eea; margin-top: 0;'>✨ Start Your Data Analysis Journey ✨</h3>
+            <h3 style='color: #667eea; margin-top: 0;'>Start Your Data Analysis Journey</h3>
             <p style='color: #764ba2; font-size: 16px; font-weight: 600;'>
-            📤 Start by uploading a CSV file in the left sidebar to begin exploring!
+            Start by uploading a CSV file in the left sidebar to begin exploring!
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -1231,7 +1231,7 @@ def main():
     <h2 style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
                background-clip: text;'>
-    📊 Dataset: <span style='color: #667eea;'><b>{uploaded_file.name}</b></span>
+    Dataset: <span style='color: #667eea;'><b>{uploaded_file.name}</b></span>
     </h2>
     """, unsafe_allow_html=True)
     
