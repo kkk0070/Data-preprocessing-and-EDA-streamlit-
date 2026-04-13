@@ -667,6 +667,173 @@ def render_models(df):
         st.error("❌ Target column cannot be a feature column")
         return
     
+    # 📊 INSIGHT SECTION
+    st.markdown("---")
+    st.markdown("<h4 style='color: #667eea;'>🔍 Dataset Insights & Analysis Preview</h4>", unsafe_allow_html=True)
+    
+    # Create insight columns
+    insight_col1, insight_col2 = st.columns(2)
+    
+    with insight_col1:
+        st.markdown("<h5 style='color: #667eea;'>📈 Selected Features Overview</h5>", unsafe_allow_html=True)
+        
+        # Feature insights
+        feature_insights = []
+        for col in selected_features:
+            col_data = df[col].dropna()
+            feature_info = {
+                'Feature': col,
+                'Type': str(df[col].dtype),
+                'Range': f"{col_data.min():.2f} - {col_data.max():.2f}" if col_data.dtype in ['int64', 'float64'] else f"{col_data.nunique()} unique values",
+                'Missing': f"{df[col].isnull().sum()} ({df[col].isnull().sum()/len(df)*100:.1f}%)",
+                'Samples': len(col_data)
+            }
+            feature_insights.append(feature_info)
+        
+        feature_df = pd.DataFrame(feature_insights)
+        st.dataframe(feature_df, use_container_width=True)
+        
+        # Feature correlation preview
+        if len(selected_features) > 1:
+            st.markdown("<h6 style='color: #764ba2;'>🔗 Feature Correlations</h6>", unsafe_allow_html=True)
+            corr_matrix = df[selected_features].corr()
+            fig, ax = plt.subplots(figsize=(6, 4))
+            fig.patch.set_facecolor('#FAFBFF')
+            ax.set_facecolor('#F5F7FA')
+            
+            mask = np.triu(np.ones_like(corr_matrix, dtype=bool))
+            sns.heatmap(corr_matrix, mask=mask, annot=True, cmap='coolwarm', 
+                       ax=ax, cbar_kws={'shrink': 0.8}, linewidths=0.5,
+                       annot_kws={'size': 8})
+            ax.set_title('Feature Correlation Matrix', fontsize=10, fontweight='bold', color='#667eea')
+            ax.tick_params(axis='both', labelsize=8)
+            st.pyplot(fig)
+    
+    with insight_col2:
+        st.markdown("<h5 style='color: #764ba2;'>🎯 Target Column Analysis</h5>", unsafe_allow_html=True)
+        
+        # Target insights
+        target_data = df[target_col].dropna()
+        target_info = {
+            'Target': target_col,
+            'Type': str(df[target_col].dtype),
+            'Missing': f"{df[target_col].isnull().sum()} ({df[target_col].isnull().sum()/len(df)*100:.1f}%)",
+            'Samples': len(target_data)
+        }
+        
+        # Detect problem type for insights
+        if df[target_col].dtype == 'object':
+            problem_type_insight = 'Classification'
+            target_info['Classes'] = f"{len(target_data.unique())} classes"
+            target_info['Distribution'] = f"Most common: {target_data.mode().iloc[0]}"
+        else:
+            unique_vals = len(target_data.unique())
+            if unique_vals < 20 and df[target_col].dtype in ['int64', 'int32']:
+                problem_type_insight = 'Classification'
+                target_info['Classes'] = f"{unique_vals} classes"
+                target_info['Distribution'] = f"Values: {sorted(target_data.unique())[:5]}{'...' if unique_vals > 5 else ''}"
+            else:
+                problem_type_insight = 'Regression'
+                target_info['Range'] = f"{target_data.min():.2f} - {target_data.max():.2f}"
+                target_info['Distribution'] = f"Mean: {target_data.mean():.2f}, Std: {target_data.std():.2f}"
+        
+        target_info['Problem Type'] = problem_type_insight
+        
+        # Display target info
+        for key, value in target_info.items():
+            if key == 'Target':
+                st.markdown(f"**{key}:** {value}")
+            else:
+                st.markdown(f"**{key}:** {value}")
+        
+        # Target distribution visualization
+        st.markdown("<h6 style='color: #667eea;'>📊 Target Distribution</h6>", unsafe_allow_html=True)
+        
+        fig, ax = plt.subplots(figsize=(6, 4))
+        fig.patch.set_facecolor('#FAFBFF')
+        ax.set_facecolor('#F5F7FA')
+        
+        if problem_type_insight == 'Classification':
+            if len(target_data.unique()) <= 10:
+                target_data.value_counts().plot(kind='bar', ax=ax, color='#5DA9E8', edgecolor='white', linewidth=1)
+                ax.set_xlabel('Classes', fontsize=9, fontweight='bold')
+            else:
+                target_data.value_counts().head(10).plot(kind='bar', ax=ax, color='#5DA9E8', edgecolor='white', linewidth=1)
+                ax.set_xlabel('Top 10 Classes', fontsize=9, fontweight='bold')
+        else:
+            ax.hist(target_data, bins=20, color='#5DA9E8', edgecolor='white', linewidth=1, alpha=0.7)
+            ax.set_xlabel('Values', fontsize=9, fontweight='bold')
+        
+        ax.set_ylabel('Frequency', fontsize=9, fontweight='bold')
+        ax.set_title(f'Distribution of {target_col}', fontsize=10, fontweight='bold', color='#667eea')
+        ax.tick_params(axis='both', labelsize=8)
+        ax.grid(axis='y', alpha=0.3)
+        plt.xticks(rotation=45, ha='right')
+        st.pyplot(fig)
+    
+    # Expected Results Preview
+    st.markdown("---")
+    st.markdown("<h5 style='color: #667eea;'>🎯 Expected Model Results</h5>", unsafe_allow_html=True)
+    
+    result_col1, result_col2, result_col3 = st.columns(3)
+    
+    with result_col1:
+        st.markdown(f"""
+        <div style='background: linear-gradient(135deg, #E3F2FD 0%, #F3E5F5 100%); 
+                    padding: 15px; border-radius: 10px; border-left: 4px solid #5DA9E8;'>
+            <h6 style='color: #1565C0; margin: 0;'>📊 Problem Type</h6>
+            <p style='color: #424242; margin: 5px 0; font-weight: 600;'>{problem_type_insight}</p>
+            <small style='color: #666;'>Based on target column analysis</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with result_col2:
+        models_count = 7 if problem_type_insight == 'Classification' else 6
+        st.markdown(f"""
+        <div style='background: linear-gradient(135deg, #FFF3E0 0%, #FCE4EC 100%); 
+                    padding: 15px; border-radius: 10px; border-left: 4px solid #FFB347;'>
+            <h6 style='color: #E65100; margin: 0;'>🤖 Models to Train</h6>
+            <p style='color: #424242; margin: 5px 0; font-weight: 600;'>{models_count} ML Models</p>
+            <small style='color: #666;'>Auto-selected for {problem_type_insight.lower()}</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with result_col3:
+        if problem_type_insight == 'Classification':
+            expected_output = f"Predict class labels from {len(target_data.unique())} categories"
+        else:
+            expected_output = f"Predict continuous values (range: {target_data.min():.2f} - {target_data.max():.2f})"
+        
+        st.markdown(f"""
+        <div style='background: linear-gradient(135deg, #E8F5E9 0%, #F1F8E9 100%); 
+                    padding: 15px; border-radius: 10px; border-left: 4px solid #66BB6A;'>
+            <h6 style='color: #2E7D32; margin: 0;'>🎯 Expected Output</h6>
+            <p style='color: #424242; margin: 5px 0; font-size: 12px;'>{expected_output}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Quick stats summary
+    st.markdown("---")
+    st.markdown("<h6 style='color: #667eea;'>📋 Quick Dataset Summary</h6>", unsafe_allow_html=True)
+    
+    summary_col1, summary_col2, summary_col3, summary_col4 = st.columns(4)
+    
+    with summary_col1:
+        st.metric("🔢 Features Selected", len(selected_features))
+    
+    with summary_col2:
+        valid_samples = len(df.dropna(subset=selected_features + [target_col]))
+        st.metric("✅ Valid Samples", valid_samples)
+    
+    with summary_col3:
+        if problem_type_insight == 'Classification':
+            st.metric("🏷️ Target Classes", len(target_data.unique()))
+        else:
+            st.metric("📈 Target Range", f"{target_data.min():.1f} - {target_data.max():.1f}")
+    
+    with summary_col4:
+        st.metric("📊 Data Quality", f"{(1 - df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100:.1f}%")
+    
     st.markdown("---")
     
     try:
