@@ -21,7 +21,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 
 st.set_page_config(
     page_title="EDA Dashboard",
-    page_icon="🧠",
+    page_icon="",
     layout="wide",
 )
 
