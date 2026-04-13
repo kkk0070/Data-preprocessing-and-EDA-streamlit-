@@ -10,14 +10,14 @@ import streamlit as st
 import streamlit.components.v1 as components
 import sweetviz as sv
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.svm import SVC
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.linear_model import LogisticRegression, LinearRegression
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, RandomForestRegressor, GradientBoostingRegressor
+from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
+from sklearn.svm import SVC, SVR
 from sklearn.naive_bayes import GaussianNB
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report, mean_squared_error, mean_absolute_error, r2_score
 
 st.set_page_config(
     page_title="EDA Dashboard",
@@ -623,209 +623,398 @@ def render_missing_values(df):
 
 def render_models(df):
     st.subheader("🤖 Machine Learning Models")
-    st.write("Train and compare multiple ML models on your dataset.")
+    st.write("Train and compare multiple ML models on your dataset. Select features and target column to get started.")
     
-    # Prepare data for modeling
+    # Data Preparation
     st.markdown("<h4 style='color: #667eea;'>📊 Model Configuration</h4>", unsafe_allow_html=True)
     
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    categorical_cols = df.select_dtypes(exclude=[np.number]).columns.tolist()
+    all_cols = df.columns.tolist()
+    
+    if not numeric_cols:
+        st.error("⚠️ No numeric columns found. Models require numeric features.")
+        return
+    
+    # Feature and Target Selection with auto-defaults
     col1, col2 = st.columns(2)
+    
     with col1:
-        st.write("**Numeric Columns (Features):**")
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        if not numeric_cols:
-            st.error("⚠️ No numeric columns found. Models require numeric features.")
+        st.write("**Select Features (Predictors):**")
+        default_features = numeric_cols[:min(len(numeric_cols)-1, 5)] if len(numeric_cols) > 1 else numeric_cols
+        selected_features = st.multiselect(
+            "Choose numeric columns as features",
+            numeric_cols,
+            default=default_features,
+            key="feature_selection"
+        )
+    
+    with col2:
+        st.write("**Select Target Column:**")
+        default_target = numeric_cols[-1] if len(numeric_cols) > 1 else numeric_cols[0]
+        target_col = st.selectbox(
+            "Choose target column to predict",
+            all_cols,
+            index=all_cols.index(default_target) if default_target in all_cols else 0,
+            key="target_selection"
+        )
+    
+    if not selected_features:
+        st.error("❌ Please select at least one feature column")
+        return
+    
+    if target_col in selected_features:
+        st.error("❌ Target column cannot be a feature column")
+        return
+    
+    st.markdown("---")
+    
+    try:
+        # Prepare data
+        X = df[selected_features].copy()
+        y = df[target_col].copy()
+        
+        # Remove rows with missing values
+        valid_idx = X.notna().all(axis=1) & y.notna()
+        X = X[valid_idx].reset_index(drop=True)
+        y = y[valid_idx].reset_index(drop=True)
+        
+        if len(X) < 10:
+            st.error(f"❌ Not enough valid data. Found {len(X)} valid samples, need at least 10.")
             return
-        selected_features = st.multiselect("Select feature columns", numeric_cols, default=numeric_cols[:min(3, len(numeric_cols))])
-    
-    with col2:
-        st.write("**Target Column:**")
-        all_cols = df.columns.tolist()
-        target_col = st.selectbox("Select target column for classification", all_cols)
-    
-    if not selected_features or target_col not in all_cols:
-        st.error("❌ Please select features and target column")
-        return
-    
-    st.markdown("---")
-    
-    # Prepare data
-    X = df[selected_features].copy()
-    y = df[target_col].copy()
-    
-    # Remove rows with missing values
-    valid_idx = X.notna().all(axis=1) & y.notna()
-    X = X[valid_idx]
-    y = y[valid_idx]
-    
-    if len(X) == 0:
-        st.error("❌ No valid data after removing missing values")
-        return
-    
-    # Encode target if categorical
-    if y.dtype == 'object':
-        le = LabelEncoder()
-        y = le.fit_transform(y)
-        target_classes = le.classes_
-    else:
-        target_classes = np.unique(y)
-    
-    # Display data info
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("📊 Samples", len(X))
-    with col2:
-        st.metric("🔢 Features", len(selected_features))
-    with col3:
-        st.metric("🏷️ Classes", len(target_classes))
-    with col4:
-        st.metric("✅ Valid Data %", f"{(len(X)/len(df))*100:.1f}%")
-    
-    st.markdown("---")
-    
-    # Train test split
-    test_size = st.slider("Test Set Size %", 10, 50, 20) / 100
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
-    
-    st.markdown("<h4 style='color: #667eea;'>🚀 Training Models...</h4>", unsafe_allow_html=True)
-    
-    # Define models
-    models = {
-        'Logistic Regression': LogisticRegression(max_iter=1000, random_state=42),
-        'Decision Tree': DecisionTreeClassifier(random_state=42),
-        'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
-        'Gradient Boosting': GradientBoostingClassifier(random_state=42),
-        'K-Nearest Neighbors': KNeighborsClassifier(n_neighbors=5),
-        'Support Vector Machine': SVC(random_state=42),
-        'Naive Bayes': GaussianNB(),
-    }
-    
-    # Train models and store results
-    results = []
-    predictions = {}
-    trained_models = {}
-    
-    progress_bar = st.progress(0)
-    for idx, (name, model) in enumerate(models.items()):
-        try:
-            model.fit(X_train, y_train)
-            y_pred = model.predict(X_test)
-            
-            accuracy = accuracy_score(y_test, y_pred)
-            precision = precision_score(y_test, y_pred, average='weighted', zero_division=0)
-            recall = recall_score(y_test, y_pred, average='weighted', zero_division=0)
-            f1 = f1_score(y_test, y_pred, average='weighted', zero_division=0)
-            
-            results.append({
-                'Model': name,
-                'Accuracy': f"{accuracy*100:.2f}%",
-                'Precision': f"{precision*100:.2f}%",
-                'Recall': f"{recall*100:.2f}%",
-                'F1-Score': f"{f1*100:.2f}%",
-                'Accuracy (float)': accuracy,
-            })
-            
-            predictions[name] = y_pred
-            trained_models[name] = model
-        except Exception as e:
-            st.warning(f"⚠️ {name} failed: {str(e)}")
         
-        progress_bar.progress((idx + 1) / len(models))
-    
-    results_df = pd.DataFrame(results)
-    st.success("✅ Model training complete!")
-    
-    st.markdown("---")
-    st.markdown("<h4 style='color: #764ba2;'>📊 Model Performance Comparison</h4>", unsafe_allow_html=True)
-    
-    # Show results table
-    st.dataframe(results_df.drop('Accuracy (float)', axis=1), use_container_width=True)
-    
-    st.markdown("---")
-    
-    # Visualize accuracy comparison
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("<h5 style='color: #667eea;'>📈 Accuracy Comparison</h5>", unsafe_allow_html=True)
-        accuracy_data = results_df.sort_values('Accuracy (float)', ascending=True)
+        # Detect problem type
+        if y.dtype == 'object':
+            problem_type = 'classification'
+            le = LabelEncoder()
+            y_encoded = le.fit_transform(y)
+            target_classes = le.classes_
+            n_classes = len(target_classes)
+        else:
+            # Check if it's classification (integer with few unique values) or regression
+            unique_vals = len(y.unique())
+            if unique_vals < 20 and y.dtype in ['int64', 'int32']:
+                problem_type = 'classification'
+                le = LabelEncoder()
+                y_encoded = le.fit_transform(y)
+                target_classes = le.classes_
+                n_classes = len(target_classes)
+            else:
+                problem_type = 'regression'
+                y_encoded = y
+                target_classes = None
+                n_classes = None
         
-        fig, ax = plt.subplots(figsize=(8, 5))
-        fig.patch.set_facecolor('#FAFBFF')
-        ax.set_facecolor('#F5F7FA')
-        
-        colors = ['#66BB6A' if x == accuracy_data['Accuracy (float)'].max() else '#5DA9E8' 
-                 for x in accuracy_data['Accuracy (float)']]
-        
-        bars = ax.barh(accuracy_data['Model'], accuracy_data['Accuracy (float)'], color=colors, edgecolor='white', linewidth=2)
-        ax.set_xlabel('Accuracy Score', fontsize=11, fontweight='bold', color='#424242')
-        ax.set_title('Model Accuracy Comparison', fontsize=12, fontweight='bold', color='#667eea')
-        ax.set_xlim([0, 1.05])
-        ax.tick_params(axis='both', labelcolor='#424242')
-        ax.grid(axis='x', alpha=0.3, color='#E8EAEF', linestyle='--')
-        
-        # Add percentage labels
-        for i, (idx, row) in enumerate(accuracy_data.iterrows()):
-            ax.text(row['Accuracy (float)'] + 0.02, i, f"{row['Accuracy (float)']*100:.1f}%", 
-                   va='center', fontweight='bold', color='#424242', fontsize=10)
-        
-        st.pyplot(fig)
-    
-    with col2:
-        st.markdown("<h5 style='color: #764ba2;'>🏆 Best Model</h5>", unsafe_allow_html=True)
-        best_idx = results_df['Accuracy (float)'].idxmax()
-        best_model_name = results_df.loc[best_idx, 'Model']
-        best_accuracy = results_df.loc[best_idx, 'Accuracy (float)']
-        
-        st.markdown(f"""
-        <div style='background: linear-gradient(135deg, #66BB6A 0%, #4CAF50 100%); 
-                    padding: 25px; border-radius: 15px; text-align: center; color: white;'>
-            <h3 style='margin: 0; font-size: 24px;'>{best_model_name}</h3>
-            <p style='margin: 10px 0 0 0; font-size: 18px; font-weight: 600;'>{best_accuracy*100:.2f}% Accuracy</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("<h5 style='color: #667eea; margin-top: 20px;'>📊 Performance Metrics</h5>", unsafe_allow_html=True)
-        best_row = results_df.loc[best_idx]
-        col_a, col_b = st.columns(2)
-        with col_a:
-            st.metric("Precision", best_row['Precision'])
-            st.metric("Recall", best_row['Recall'])
-        with col_b:
-            st.metric("F1-Score", best_row['F1-Score'])
-            st.metric("Test Samples", len(X_test))
-    
-    st.markdown("---")
-    
-    # Confusion Matrix for best model
-    if best_model_name in trained_models:
-        st.markdown("<h4 style='color: #667eea;'>🔍 Best Model - Confusion Matrix</h4>", unsafe_allow_html=True)
-        
-        best_predictions = predictions[best_model_name]
-        cm = confusion_matrix(y_test, best_predictions)
-        
-        col1, col2 = st.columns([1.5, 1])
+        # Display data info
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
-            fig, ax = plt.subplots(figsize=(8, 6))
+            st.metric("📊 Samples", len(X))
+        with col2:
+            st.metric("🔢 Features", len(selected_features))
+        with col3:
+            if problem_type == 'classification':
+                st.metric("🏷️ Classes", n_classes)
+            else:
+                st.metric("📈 Range", f"{y.min():.2f} - {y.max():.2f}")
+        with col4:
+            st.metric("✅ Valid Data %", f"{(len(X)/len(df))*100:.1f}%")
+        
+        st.info(f"🎯 Detected: **{problem_type.upper()}** problem with target '{target_col}'")
+        st.markdown("---")
+        
+        # Train-test split
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            test_size = st.slider("Train-Test Split (Test %):", 10, 40, 20, key="test_size") / 100
+        with col2:
+            random_seed = st.number_input("Random Seed:", value=42, min_value=0, key="random_seed")
+        
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y_encoded, test_size=test_size, random_state=random_seed
+        )
+        
+        # Scale features for better model performance
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        
+        st.markdown("---")
+        st.markdown("<h4 style='color: #667eea;'>🚀 Training Models...</h4>", unsafe_allow_html=True)
+        
+        # Define models based on problem type
+        if problem_type == 'classification':
+            models = {
+                'Logistic Regression': LogisticRegression(max_iter=1000, random_state=random_seed),
+                'Decision Tree': DecisionTreeClassifier(max_depth=10, random_state=random_seed),
+                'Random Forest': RandomForestClassifier(n_estimators=100, max_depth=10, random_state=random_seed),
+                'Gradient Boosting': GradientBoostingClassifier(n_estimators=100, random_state=random_seed),
+                'K-Nearest Neighbors': KNeighborsClassifier(n_neighbors=5),
+                'Support Vector Machine': SVC(kernel='rbf', random_state=random_seed),
+                'Naive Bayes': GaussianNB(),
+            }
+        else:  # regression
+            models = {
+                'Linear Regression': LinearRegression(),
+                'Decision Tree': DecisionTreeRegressor(max_depth=10, random_state=random_seed),
+                'Random Forest': RandomForestRegressor(n_estimators=100, max_depth=10, random_state=random_seed),
+                'Gradient Boosting': GradientBoostingRegressor(n_estimators=100, random_state=random_seed),
+                'K-Nearest Neighbors': KNeighborsRegressor(n_neighbors=5),
+                'Support Vector Machine': SVR(kernel='rbf'),
+            }
+        
+        # Train models
+        results = []
+        predictions = {}
+        trained_models = {}
+        
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        for idx, (name, model) in enumerate(models.items()):
+            status_text.text(f"Training {name}... ({idx+1}/{len(models)})")
+            try:
+                # Use scaled features for most models
+                if name in ['Support Vector Machine', 'K-Nearest Neighbors', 'Logistic Regression']:
+                    model.fit(X_train_scaled, y_train)
+                    y_pred = model.predict(X_test_scaled)
+                else:
+                    model.fit(X_train, y_train)
+                    y_pred = model.predict(X_test)
+                
+                trained_models[name] = model
+                predictions[name] = y_pred
+                
+                # Calculate metrics based on problem type
+                if problem_type == 'classification':
+                    accuracy = accuracy_score(y_test, y_pred)
+                    precision = precision_score(y_test, y_pred, average='weighted', zero_division=0)
+                    recall = recall_score(y_test, y_pred, average='weighted', zero_division=0)
+                    f1 = f1_score(y_test, y_pred, average='weighted', zero_division=0)
+                    
+                    results.append({
+                        'Model': name,
+                        'Accuracy': f"{accuracy*100:.2f}%",
+                        'Precision': f"{precision*100:.2f}%",
+                        'Recall': f"{recall*100:.2f}%",
+                        'F1-Score': f"{f1*100:.2f}%",
+                        'Score': accuracy,
+                    })
+                else:  # regression
+                    mse = mean_squared_error(y_test, y_pred)
+                    mae = mean_absolute_error(y_test, y_pred)
+                    rmse = np.sqrt(mse)
+                    r2 = r2_score(y_test, y_pred)
+                    
+                    results.append({
+                        'Model': name,
+                        'R² Score': f"{r2:.4f}",
+                        'MAE': f"{mae:.4f}",
+                        'RMSE': f"{rmse:.4f}",
+                        'MSE': f"{mse:.4f}",
+                        'Score': r2,
+                    })
+                    
+            except Exception as e:
+                st.warning(f"⚠️ {name} training failed: {str(e)}")
+            
+            progress_bar.progress((idx + 1) / len(models))
+        
+        status_text.empty()
+        progress_bar.empty()
+        
+        if not results:
+            st.error("❌ No models trained successfully")
+            return
+        
+        results_df = pd.DataFrame(results)
+        st.success(f"✅ Successfully trained {len(results)} models!")
+        
+        st.markdown("---")
+        st.markdown("<h4 style='color: #764ba2;'>📊 Model Performance Comparison</h4>", unsafe_allow_html=True)
+        
+        # Show results table
+        display_df = results_df.drop('Score', axis=1)
+        st.dataframe(display_df, use_container_width=True)
+        
+        st.markdown("---")
+        
+        # Find best model
+        best_idx = results_df['Score'].idxmax()
+        best_model_name = results_df.loc[best_idx, 'Model']
+        best_score = results_df.loc[best_idx, 'Score']
+        
+        # Visualizations
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if problem_type == 'classification':
+                st.markdown("<h5 style='color: #667eea;'>📈 Accuracy Comparison</h5>", unsafe_allow_html=True)
+                metric_col = 'Accuracy'
+            else:
+                st.markdown("<h5 style='color: #667eea;'>📈 R² Score Comparison</h5>", unsafe_allow_html=True)
+                metric_col = 'R² Score'
+            
+            # Parse scores for plotting
+            plot_data = results_df.sort_values('Score', ascending=True)
+            
+            fig, ax = plt.subplots(figsize=(10, 5))
             fig.patch.set_facecolor('#FAFBFF')
             ax.set_facecolor('#F5F7FA')
             
-            sns.heatmap(cm, annot=True, fmt='d', cmap='Pastel1', cbar=True, 
-                       xticklabels=target_classes, yticklabels=target_classes,
-                       ax=ax, cbar_kws={'label': 'Count'}, linewidths=2.5, linecolor='white',
-                       annot_kws={'size': 12, 'weight': 'bold', 'color': '#424242'})
+            colors = ['#66BB6A' if score == plot_data['Score'].max() else '#5DA9E8' 
+                     for score in plot_data['Score']]
             
-            ax.set_xlabel('Predicted Label', fontsize=11, fontweight='bold', color='#424242')
-            ax.set_ylabel('True Label', fontsize=11, fontweight='bold', color='#424242')
-            ax.set_title(f'Confusion Matrix - {best_model_name}', fontsize=12, fontweight='bold', color='#667eea')
+            bars = ax.barh(plot_data['Model'], plot_data['Score'], color=colors, edgecolor='white', linewidth=2)
+            ax.set_xlabel('Score', fontsize=11, fontweight='bold', color='#424242')
+            ax.set_title(f'Model {metric_col} Comparison', fontsize=12, fontweight='bold', color='#667eea')
+            if problem_type == 'classification':
+                ax.set_xlim([0, 1.05])
             ax.tick_params(axis='both', labelcolor='#424242')
+            ax.grid(axis='x', alpha=0.3, color='#E8EAEF', linestyle='--')
+            
+            # Add value labels
+            for i, (idx, row) in enumerate(plot_data.iterrows()):
+                if problem_type == 'classification':
+                    label = f"{row['Score']*100:.1f}%"
+                else:
+                    label = f"{row['Score']:.4f}"
+                ax.text(row['Score'] + 0.02, i, label, va='center', fontweight='bold', 
+                       color='#424242', fontsize=10)
             
             st.pyplot(fig)
         
         with col2:
-            st.markdown("<h5 style='color: #764ba2;'>📈 Classification Report</h5>", unsafe_allow_html=True)
-            report = classification_report(y_test, best_predictions, target_names=target_classes, output_dict=True)
-            report_df = pd.DataFrame(report).transpose()
-            st.dataframe(report_df.iloc[:-3], use_container_width=True)
+            st.markdown("<h5 style='color: #764ba2;'>🏆 Best Performing Model</h5>", unsafe_allow_html=True)
+            
+            if problem_type == 'classification':
+                score_label = f"{best_score*100:.2f}% Accuracy"
+            else:
+                score_label = f"{best_score:.4f} R² Score"
+            
+            st.markdown(f"""
+            <div style='background: linear-gradient(135deg, #66BB6A 0%, #4CAF50 100%); 
+                        padding: 30px; border-radius: 15px; text-align: center; color: white;'>
+                <h3 style='margin: 0; font-size: 24px;'>{best_model_name}</h3>
+                <p style='margin: 10px 0 0 0; font-size: 20px; font-weight: 600;'>{score_label}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("<h5 style='color: #667eea; margin-top: 20px;'>📊 Best Model Metrics</h5>", 
+                       unsafe_allow_html=True)
+            best_row = results_df.loc[best_idx]
+            
+            metrics_cols = st.columns(2)
+            metrics_idx = 0
+            for col_name in best_row.index:
+                if col_name not in ['Model', 'Score']:
+                    with metrics_cols[metrics_idx % 2]:
+                        st.metric(col_name, best_row[col_name])
+                    metrics_idx += 1
+        
+        st.markdown("---")
+        
+        # Detailed analysis for best model
+        st.markdown("<h4 style='color: #667eea;'>🔍 Detailed Analysis - Best Model</h4>", unsafe_allow_html=True)
+        
+        if problem_type == 'classification' and n_classes <= 10:
+            col1, col2 = st.columns([1.5, 1])
+            
+            with col1:
+                st.markdown("<h5 style='color: #667eea;'>🔥 Confusion Matrix</h5>", unsafe_allow_html=True)
+                best_predictions = predictions[best_model_name]
+                cm = confusion_matrix(y_test, best_predictions)
+                
+                fig, ax = plt.subplots(figsize=(8, 6))
+                fig.patch.set_facecolor('#FAFBFF')
+                ax.set_facecolor('#F5F7FA')
+                
+                sns.heatmap(cm, annot=True, fmt='d', cmap='YlOrRd', cbar=True,
+                           xticklabels=target_classes, yticklabels=target_classes,
+                           ax=ax, cbar_kws={'label': 'Count'}, linewidths=2, linecolor='white',
+                           annot_kws={'size': 11, 'weight': 'bold', 'color': '#424242'})
+                
+                ax.set_xlabel('Predicted Label', fontsize=11, fontweight='bold', color='#424242')
+                ax.set_ylabel('True Label', fontsize=11, fontweight='bold', color='#424242')
+                ax.set_title(f'Confusion Matrix - {best_model_name}', fontsize=12, fontweight='bold', 
+                           color='#667eea')
+                ax.tick_params(axis='both', labelcolor='#424242')
+                
+                st.pyplot(fig)
+            
+            with col2:
+                st.markdown("<h5 style='color: #764ba2;'>📈 Classification Report</h5>", unsafe_allow_html=True)
+                best_predictions = predictions[best_model_name]
+                report = classification_report(y_test, best_predictions, target_names=target_classes, 
+                                             output_dict=True)
+                report_df = pd.DataFrame(report).transpose()
+                st.dataframe(report_df.round(3), use_container_width=True)
+        
+        elif problem_type == 'regression':
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("<h5 style='color: #667eea;'>🎯 Predicted vs Actual</h5>", unsafe_allow_html=True)
+                best_predictions = predictions[best_model_name]
+                
+                fig, ax = plt.subplots(figsize=(8, 6))
+                fig.patch.set_facecolor('#FAFBFF')
+                ax.set_facecolor('#F5F7FA')
+                
+                ax.scatter(y_test, best_predictions, alpha=0.6, color='#5DA9E8', edgecolor='white', linewidth=1, s=50)
+                min_val = min(y_test.min(), best_predictions.min())
+                max_val = max(y_test.max(), best_predictions.max())
+                ax.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2, label='Perfect Prediction')
+                
+                ax.set_xlabel('Actual Values', fontsize=11, fontweight='bold', color='#424242')
+                ax.set_ylabel('Predicted Values', fontsize=11, fontweight='bold', color='#424242')
+                ax.set_title(f'Predicted vs Actual - {best_model_name}', fontsize=12, fontweight='bold', 
+                           color='#667eea')
+                ax.legend()
+                ax.grid(True, alpha=0.3)
+                ax.tick_params(axis='both', labelcolor='#424242')
+                
+                st.pyplot(fig)
+            
+            with col2:
+                st.markdown("<h5 style='color: #764ba2;'>📊 Residuals Analysis</h5>", unsafe_allow_html=True)
+                best_predictions = predictions[best_model_name]
+                residuals = y_test - best_predictions
+                
+                fig, ax = plt.subplots(figsize=(8, 6))
+                fig.patch.set_facecolor('#FAFBFF')
+                ax.set_facecolor('#F5F7FA')
+                
+                ax.hist(residuals, bins=20, color='#5DA9E8', edgecolor='white', linewidth=1.5, alpha=0.7)
+                ax.axvline(x=0, color='red', linestyle='--', linewidth=2, label='Zero Error')
+                
+                ax.set_xlabel('Residuals', fontsize=11, fontweight='bold', color='#424242')
+                ax.set_ylabel('Frequency', fontsize=11, fontweight='bold', color='#424242')
+                ax.set_title(f'Residuals Distribution - {best_model_name}', fontsize=12, fontweight='bold', 
+                           color='#667eea')
+                ax.legend()
+                ax.grid(True, alpha=0.3, axis='y')
+                ax.tick_params(axis='both', labelcolor='#424242')
+                
+                st.pyplot(fig)
+        
+        # Model comparison details
+        st.markdown("---")
+        st.markdown("<h4 style='color: #764ba2;'>🔄 All Models Summary</h4>", unsafe_allow_html=True)
+        
+        with st.expander("📋 Detailed Results for All Models"):
+            st.dataframe(results_df.drop('Score', axis=1), use_container_width=True)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown(f"**Total Models Trained:** {len(results)}")
+                st.markdown(f"**Best Model:** {best_model_name}")
+            with col2:
+                st.markdown(f"**Training Data Size:** {len(X_train)}")
+                st.markdown(f"**Testing Data Size:** {len(X_test)}")
+    
+    except Exception as e:
+        st.error(f"❌ An error occurred: {str(e)}")
+        st.info("💡 Tip: Make sure your data is properly formatted and has no issues.")
 
 
 def main():
