@@ -631,32 +631,31 @@ def render_models(df):
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     categorical_cols = df.select_dtypes(exclude=[np.number]).columns.tolist()
     all_cols = df.columns.tolist()
-    
-    if not numeric_cols:
-        st.error("No numeric columns found. Models require numeric features.")
-        return
-    
+
     # Feature and Target Selection with auto-defaults
     col1, col2 = st.columns(2)
-    
+
     with col1:
-        st.write("**Select Features (Predictors):**")
-        default_features = numeric_cols[:min(len(numeric_cols)-1, 5)] if len(numeric_cols) > 1 else numeric_cols
-        selected_features = st.multiselect(
-            "Choose numeric columns as features",
-            numeric_cols,
-            default=default_features,
-            key="feature_selection"
-        )
-    
-    with col2:
         st.write("**Select Target Column:**")
-        default_target = numeric_cols[-1] if len(numeric_cols) > 1 else numeric_cols[0]
+        default_target = numeric_cols[-1] if numeric_cols else all_cols[0]
         target_col = st.selectbox(
             "Choose target column to predict",
             all_cols,
             index=all_cols.index(default_target) if default_target in all_cols else 0,
             key="target_selection"
+        )
+
+    with col2:
+        st.write("**Select Features (Predictors):**")
+        available_features = [col for col in all_cols if col != target_col]
+        default_features = [col for col in available_features if col in numeric_cols][:min(len(available_features), 5)]
+        if not default_features and available_features:
+            default_features = available_features[:min(len(available_features), 5)]
+        selected_features = st.multiselect(
+            "Choose columns as features",
+            available_features,
+            default=default_features,
+            key="feature_selection"
         )
     
     if not selected_features:
@@ -694,9 +693,10 @@ def render_models(df):
         st.dataframe(feature_df, use_container_width=True)
         
         # Feature correlation preview
-        if len(selected_features) > 1:
+        numeric_feature_cols = df[selected_features].select_dtypes(include=[np.number]).columns.tolist()
+        if len(numeric_feature_cols) > 1:
             st.markdown("<h6 style='color: #764ba2;'>Feature Correlations</h6>", unsafe_allow_html=True)
-            corr_matrix = df[selected_features].corr()
+            corr_matrix = df[numeric_feature_cols].corr()
             fig, ax = plt.subplots(figsize=(6, 4))
             fig.patch.set_facecolor('#FAFBFF')
             ax.set_facecolor('#F5F7FA')
@@ -840,21 +840,26 @@ def render_models(df):
         # Prepare data
         X = df[selected_features].copy()
         y = df[target_col].copy()
-        
+
         # Remove rows with missing values
         valid_idx = X.notna().all(axis=1) & y.notna()
         X = X[valid_idx].reset_index(drop=True)
         y = y[valid_idx].reset_index(drop=True)
-        
+
         if len(X) < 10:
             st.error(f"Not enough valid data. Found {len(X)} valid samples, need at least 10.")
             return
-        
+
+        # Encode categorical features automatically
+        categorical_feature_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
+        for col in categorical_feature_cols:
+            X[col] = LabelEncoder().fit_transform(X[col].astype(str))
+
         # Detect problem type
         if y.dtype == 'object':
             problem_type = 'classification'
             le = LabelEncoder()
-            y_encoded = le.fit_transform(y)
+            y_encoded = le.fit_transform(y.astype(str))
             target_classes = le.classes_
             n_classes = len(target_classes)
         else:
