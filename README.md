@@ -2,6 +2,8 @@
 
 A powerful and interactive **Streamlit-based EDA application** that allows users to upload datasets and perform quick data analysis, visualization, and preprocessing — all in one place.
 
+![App Overview](images/app_overview.png)
+
 ---
 
 ## Features
@@ -9,6 +11,8 @@ A powerful and interactive **Streamlit-based EDA application** that allows users
 ### Upload Dataset
 - Upload CSV files easily (up to 200MB depending on Streamlit config)
 - Instant preview of dataset
+
+![Upload Interface](images/upload_interface.png)
 
 ### Basic EDA
 - View dataset shape (rows × columns)
@@ -19,14 +23,20 @@ A powerful and interactive **Streamlit-based EDA application** that allows users
 - Select and view specific columns
 - Value counts for categorical data
 
+![Basic EDA](images/basic_eda.png)
+
 ### Advanced EDA Reports
 - **Pandas Profiling Report** (auto-generated detailed report)
 - **Sweetviz Analysis** (beautiful comparative visual report)
+
+![Pandas Profiling Report](images/pandas_profiling.png)
 
 ### Visualizations
 - Histogram
 - Boxplot
 - Column-wise analysis
+
+![Visualizations](images/visualizations.png)
 
 ### Data Preprocessing
 - Remove null values
@@ -39,6 +49,8 @@ A powerful and interactive **Streamlit-based EDA application** that allows users
 - Visualize relationships between numerical features
 - Identify feature dependencies and multicollinearity
 - Color-coded matrix for easy understanding
+
+![Correlation Heatmap](images/correlation_heatmap.png)
 
 ---
 
@@ -77,6 +89,13 @@ Open your browser and navigate to the provided URL to start using the EDA web ap
 
 See `requirements.txt` for full list of dependencies.
 
+## Tech Stack
+
+* **Frontend & App Framework:** Streamlit
+* **Data Processing:** Pandas
+* **Visualization:** Matplotlib, Seaborn
+* **EDA Reports:** ydata-profiling, Sweetviz
+
 ## Contributing
 
 Feel free to submit issues and enhancement requests!
@@ -84,119 +103,5 @@ Feel free to submit issues and enhancement requests!
 ## License
 
 This project is licensed under the MIT License.
-
-##  Tech Stack
-
-* **Frontend & App Framework:** Streamlit
-* **Data Processing:** Pandas
-* **Visualization:** Matplotlib, Seaborn
-* **EDA Reports:** ydata-profiling, Sweetviz
-
----
-
-##  Installation
-
-Clone the repository:
-
-```bash
-git clone https://github.com/your-username/eda-streamlit-app.git
-cd eda-streamlit-app
-```
-
-Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-Or install manually:
-
-```bash
-pip install streamlit pandas matplotlib seaborn ydata-profiling sweetviz
-```
-
----
-
-##  Run the App
-
-```bash
-streamlit run app.py
-```
-
----
-
-##  Project Structure
-
-```
-eda-streamlit-app/
-│
-├── app.py                # Main Streamlit app
-├── requirements.txt     # Dependencies
-├── README.md            # Project documentation
-└── report.html          # Sweetviz report (generated)
-```
-
----
-
-##  Screenshots
-
-* Sidebar with multiple EDA options
-* Dataset preview and summary
-* Interactive reports (Pandas Profiling & Sweetviz)
-* Correlation heatmap visualization
-
----
-
-##  Use Cases
-
-* Quick dataset understanding
-* Data cleaning before ML
-* Feature selection
-* Academic projects
-* Business data insights
-
----
-
-##  Limitations
-
-* Works best with CSV files
-* Correlation works only with numerical data
-* Large datasets may take time for profiling reports
-
----
-
-##  Future Improvements
-
-* Add Plotly interactive charts
-* Drag-and-drop upload UI
-* Download processed dataset
-* Machine Learning model integration
-* Dark/Light theme toggle
-
----
-
-##  Contributing
-
-Contributions are welcome!
-Feel free to fork this repo and submit a pull request.
-
----
-
-##  License
-
-This project is open-source and available under the **MIT License**.
-
----
-
-##  Author
-
-**Kavin**
-
-* Passionate about Data Science & Full Stack Development
-* Skilled in Python, ML, and Data Analysis
-
----
-
-## Support
 
 If you like this project, don’t forget to  the repository!
