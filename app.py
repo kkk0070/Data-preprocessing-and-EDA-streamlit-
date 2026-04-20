@@ -10,7 +10,8 @@ import streamlit as st
 import streamlit.components.v1 as components
 import sweetviz as sv
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler, RobustScaler, OneHotEncoder, OrdinalEncoder
+from sklearn.feature_selection import SelectKBest, f_regression, f_classif
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, RandomForestRegressor, GradientBoostingRegressor
@@ -440,27 +441,239 @@ def render_plots(df):
 
 
 def render_preprocess(df):
-    st.subheader("Preprocessed Data")
-    st.write("This section automatically presents the cleaned dataset without extra selection options.")
+    st.subheader("Complete Data Preprocessing Pipeline")
+    st.write("Apply comprehensive preprocessing steps to clean and prepare your dataset for machine learning.")
 
-    clean_df = df.dropna().reset_index(drop=True)
-    removed_rows = df.shape[0] - clean_df.shape[0]
+    # Initialize processed dataframe
+    processed_df = df.copy()
+    preprocessing_steps = []
 
-    if removed_rows > 0:
-        st.success(f"Removed {removed_rows} rows with missing values.")
+    # Step 1: Handle Missing Values
+    st.markdown("---")
+    st.markdown("<h4 style='color: #667eea;'>Step 1: Handle Missing Values</h4>", unsafe_allow_html=True)
+
+    missing_strategy = st.selectbox(
+        "Choose missing value handling strategy:",
+        ["Keep as is", "Drop rows with missing values", "Drop columns with missing values",
+         "Fill with mean (numeric)", "Fill with median (numeric)", "Fill with mode", "Forward fill", "Custom fill"],
+        key="missing_strategy"
+    )
+
+    if missing_strategy != "Keep as is":
+        if missing_strategy == "Drop rows with missing values":
+            initial_rows = processed_df.shape[0]
+            processed_df = processed_df.dropna().reset_index(drop=True)
+            preprocessing_steps.append(f"Dropped {initial_rows - processed_df.shape[0]} rows with missing values")
+
+        elif missing_strategy == "Drop columns with missing values":
+            initial_cols = processed_df.shape[1]
+            processed_df = processed_df.dropna(axis=1)
+            preprocessing_steps.append(f"Dropped {initial_cols - processed_df.shape[1]} columns with missing values")
+
+        elif missing_strategy == "Fill with mean (numeric)":
+            numeric_cols = processed_df.select_dtypes(include=[np.number]).columns
+            for col in numeric_cols:
+                if processed_df[col].isnull().sum() > 0:
+                    processed_df[col] = processed_df[col].fillna(processed_df[col].mean())
+            preprocessing_steps.append("Filled numeric columns with mean values")
+
+        elif missing_strategy == "Fill with median (numeric)":
+            numeric_cols = processed_df.select_dtypes(include=[np.number]).columns
+            for col in numeric_cols:
+                if processed_df[col].isnull().sum() > 0:
+                    processed_df[col] = processed_df[col].fillna(processed_df[col].median())
+            preprocessing_steps.append("Filled numeric columns with median values")
+
+        elif missing_strategy == "Fill with mode":
+            for col in processed_df.columns:
+                if processed_df[col].isnull().sum() > 0:
+                    mode_val = processed_df[col].mode()
+                    if len(mode_val) > 0:
+                        processed_df[col] = processed_df[col].fillna(mode_val[0])
+            preprocessing_steps.append("Applied forward fill")
+
+        elif missing_strategy == "Custom fill":
+            fill_value = st.text_input("Enter custom fill value:", "0", key="custom_fill")
+            try:
+                processed_df = processed_df.fillna(fill_value)
+                preprocessing_steps.append(f"Filled missing values with: {fill_value}")
+            except:
+                st.error("Invalid fill value")
+
+    # Step 2: Handle Outliers
+    st.markdown("---")
+    st.markdown("<h4 style='color: #667eea;'>Step 2: Handle Outliers</h4>", unsafe_allow_html=True)
+
+    outlier_method = st.selectbox(
+        "Choose outlier handling method:",
+        ["Keep as is", "Remove outliers (IQR method)", "Cap outliers (IQR method)"],
+        key="outlier_method"
+    )
+
+    if outlier_method != "Keep as is":
+        numeric_cols = processed_df.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) > 0:
+            outlier_cols = st.multiselect(
+                "Select numeric columns to handle outliers:",
+                numeric_cols.tolist(),
+                default=numeric_cols[:3].tolist(),
+                key="outlier_cols"
+            )
+
+            if outlier_cols:
+                for col in outlier_cols:
+                    Q1 = processed_df[col].quantile(0.25)
+                    Q3 = processed_df[col].quantile(0.75)
+                    IQR = Q3 - Q1
+
+                    if outlier_method == "Remove outliers (IQR method)":
+                        lower_bound = Q1 - 1.5 * IQR
+                        upper_bound = Q3 + 1.5 * IQR
+                        initial_rows = processed_df.shape[0]
+                        processed_df = processed_df[(processed_df[col] >= lower_bound) & (processed_df[col] <= upper_bound)]
+                        removed = initial_rows - processed_df.shape[0]
+                        preprocessing_steps.append(f"Removed {removed} outliers from {col}")
+
+                    elif outlier_method == "Cap outliers (IQR method)":
+                        lower_bound = Q1 - 1.5 * IQR
+                        upper_bound = Q3 + 1.5 * IQR
+                        processed_df[col] = np.clip(processed_df[col], lower_bound, upper_bound)
+                        preprocessing_steps.append(f"Capped outliers in {col}")
+
+                processed_df = processed_df.reset_index(drop=True)
+
+    # Step 3: Encode Categorical Variables
+    st.markdown("---")
+    st.markdown("<h4 style='color: #667eea;'>Step 3: Encode Categorical Variables</h4>", unsafe_allow_html=True)
+
+    categorical_cols = processed_df.select_dtypes(exclude=[np.number]).columns
+    if len(categorical_cols) > 0:
+        encoding_method = st.selectbox(
+            "Choose categorical encoding method:",
+            ["Keep as is", "Label Encoding", "One-Hot Encoding"],
+            key="encoding_method"
+        )
+
+        if encoding_method != "Keep as is":
+            if encoding_method == "Label Encoding":
+                le = LabelEncoder()
+                for col in categorical_cols:
+                    processed_df[col] = le.fit_transform(processed_df[col].astype(str))
+                preprocessing_steps.append("Applied label encoding to categorical columns")
+
+            elif encoding_method == "One-Hot Encoding":
+                processed_df = pd.get_dummies(processed_df, columns=categorical_cols, drop_first=True)
+                preprocessing_steps.append("Applied one-hot encoding to categorical columns")
     else:
-        st.success("No missing values found; data is already clean.")
+        st.info("No categorical columns found for encoding.")
 
-    st.markdown("<h4 style='color: #667eea;'>Processed dataset preview</h4>", unsafe_allow_html=True)
-    st.dataframe(clean_df.head(20), use_container_width=True)
-    st.markdown("<h4 style='color: #764ba2;'>Processed dataset details</h4>", unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
+    # Step 4: Feature Scaling
+    st.markdown("---")
+    st.markdown("<h4 style='color: #667eea;'>Step 4: Feature Scaling</h4>", unsafe_allow_html=True)
+
+    numeric_cols = processed_df.select_dtypes(include=[np.number]).columns
+    if len(numeric_cols) > 0:
+        scaling_method = st.selectbox(
+            "Choose scaling method:",
+            ["No scaling", "Standard Scaling (Z-score)", "Min-Max Scaling", "Robust Scaling"],
+            key="scaling_method"
+        )
+
+        if scaling_method != "No scaling":
+            scaler_cols = st.multiselect(
+                "Select columns to scale:",
+                numeric_cols.tolist(),
+                default=numeric_cols.tolist(),
+                key="scaler_cols"
+            )
+
+            if scaler_cols:
+                if scaling_method == "Standard Scaling (Z-score)":
+                    scaler = StandardScaler()
+                    processed_df[scaler_cols] = scaler.fit_transform(processed_df[scaler_cols])
+                    preprocessing_steps.append("Applied standard scaling")
+
+                elif scaling_method == "Min-Max Scaling":
+                    scaler = MinMaxScaler()
+                    processed_df[scaler_cols] = scaler.fit_transform(processed_df[scaler_cols])
+                    preprocessing_steps.append("Applied min-max scaling")
+
+                elif scaling_method == "Robust Scaling":
+                    scaler = RobustScaler()
+                    processed_df[scaler_cols] = scaler.fit_transform(processed_df[scaler_cols])
+                    preprocessing_steps.append("Applied robust scaling")
+    else:
+        st.info("No numeric columns found for scaling.")
+
+    # Step 5: Feature Selection (Optional)
+    st.markdown("---")
+    st.markdown("<h4 style='color: #667eea;'>Step 5: Feature Selection (Optional)</h4>", unsafe_allow_html=True)
+
+    if len(processed_df.columns) > 1:
+        do_feature_selection = st.checkbox("Perform feature selection", key="feature_selection")
+
+        if do_feature_selection:
+            numeric_cols = processed_df.select_dtypes(include=[np.number]).columns
+            if len(numeric_cols) > 1:
+                # Assume last column is target if not specified
+                target_col = st.selectbox(
+                    "Select target column for feature selection:",
+                    processed_df.columns.tolist(),
+                    index=len(processed_df.columns)-1,
+                    key="target_col_fs"
+                )
+
+                feature_cols = [col for col in numeric_cols if col != target_col]
+                if len(feature_cols) > 1:
+                    k_features = st.slider(
+                        "Number of features to select:",
+                        min_value=1,
+                        max_value=len(feature_cols),
+                        value=min(5, len(feature_cols)),
+                        key="k_features"
+                    )
+
+                    if st.button("Apply Feature Selection", key="apply_fs"):
+                        X = processed_df[feature_cols]
+                        y = processed_df[target_col]
+
+                        # Choose scoring function based on target type
+                        if processed_df[target_col].dtype == 'object' or len(processed_df[target_col].unique()) < 20:
+                            score_func = f_classif
+                        else:
+                            score_func = f_regression
+
+                        selector = SelectKBest(score_func=score_func, k=k_features)
+                        X_selected = selector.fit_transform(X, y)
+
+                        selected_features = X.columns[selector.get_support()].tolist()
+                        processed_df = processed_df[selected_features + [target_col]]
+                        preprocessing_steps.append(f"Selected top {k_features} features: {', '.join(selected_features)}")
+
+    # Display Results
+    st.markdown("---")
+    st.markdown("<h4 style='color: #667eea;'>Preprocessing Results</h4>", unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Rows", clean_df.shape[0])
+        st.metric("Final Rows", processed_df.shape[0])
     with col2:
-        st.metric("Columns", clean_df.shape[1])
+        st.metric("Final Columns", processed_df.shape[1])
+    with col3:
+        st.metric("Preprocessing Steps", len(preprocessing_steps))
 
-    download_csv(clean_df, filename="preprocessed_data.csv")
+    if preprocessing_steps:
+        st.markdown("<h5 style='color: #764ba2;'>Applied Steps:</h5>", unsafe_allow_html=True)
+        for step in preprocessing_steps:
+            st.markdown(f"• {step}")
+
+    st.markdown("<h5 style='color: #667eea;'>Processed Dataset Preview</h5>", unsafe_allow_html=True)
+    st.dataframe(processed_df.head(20), use_container_width=True)
+
+    # Download processed data
+    st.markdown("---")
+    st.markdown("<h4 style='color: #667eea;'>Download Processed Dataset</h4>", unsafe_allow_html=True)
+    download_csv(processed_df, filename="fully_preprocessed_data.csv")
 
 
 def render_missing_values(df):
