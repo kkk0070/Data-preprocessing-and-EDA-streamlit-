@@ -13,7 +13,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler, RobustScaler, OneHotEncoder, OrdinalEncoder
 from sklearn.feature_selection import SelectKBest, f_regression, f_classif
 from sklearn.linear_model import LogisticRegression, LinearRegression
-from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor, plot_tree
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, RandomForestRegressor, GradientBoostingRegressor
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.svm import SVC, SVR
@@ -834,6 +834,74 @@ def render_missing_values(df):
             """, unsafe_allow_html=True)
 
 
+
+
+def plot_decision_tree_viz(model, feature_names, class_names=None, max_depth=3):
+    """Plot decision tree visualization"""
+    try:
+        fig, ax = plt.subplots(figsize=(20, 10))
+        fig.patch.set_facecolor('#FAFBFF')
+        ax.set_facecolor('#F5F7FA')
+        
+        plot_tree(model, 
+                 feature_names=feature_names,
+                 class_names=class_names,
+                 filled=True,
+                 rounded=True,
+                 fontsize=9,
+                 ax=ax,
+                 max_depth=max_depth)
+        
+        st.pyplot(fig)
+        return True
+    except Exception as e:
+        st.warning(f"Could not visualize tree: {str(e)}")
+        return False
+
+
+def plot_feature_importance(model, feature_names):
+    """Plot feature importance for tree-based and ensemble models"""
+    try:
+        if hasattr(model, 'feature_importances_'):
+            importances = model.feature_importances_
+            indices = np.argsort(importances)[::-1][:10]  # Top 10
+            
+            fig, ax = plt.subplots(figsize=(10, 6))
+            fig.patch.set_facecolor('#FAFBFF')
+            ax.set_facecolor('#F5F7FA')
+            
+            colors = plt.cm.viridis(np.linspace(0, 1, len(indices)))
+            ax.bar(range(len(indices)), importances[indices], color=colors, edgecolor='white', linewidth=2)
+            ax.set_xticks(range(len(indices)))
+            ax.set_xticklabels([feature_names[i] for i in indices], rotation=45, ha='right')
+            ax.set_xlabel('Features', fontsize=11, fontweight='bold', color='#424242')
+            ax.set_ylabel('Importance', fontsize=11, fontweight='bold', color='#424242')
+            ax.set_title('Top 10 Feature Importances', fontsize=12, fontweight='bold', color='#667eea')
+            ax.grid(True, alpha=0.3, axis='y')
+            ax.tick_params(axis='both', labelcolor='#424242')
+            
+            st.pyplot(fig)
+            return True
+    except Exception as e:
+        st.warning(f"Could not plot feature importance: {str(e)}")
+    return False
+
+
+def convert_param_values(params_dict):
+    """Convert parameter values to appropriate types for model instantiation"""
+    converted = {}
+    for key, value in params_dict.items():
+        if isinstance(value, (bool, int, float, str)) or value is None:
+            converted[key] = value
+        elif isinstance(value, np.integer):
+            converted[key] = int(value)
+        elif isinstance(value, np.floating):
+            converted[key] = float(value)
+        else:
+            converted[key] = value
+    return converted
+
+
 def render_models(df):
     st.subheader("Machine Learning Models")
     st.write("Train and compare multiple ML models on your dataset. Select features and target column to get started.")
@@ -1396,6 +1464,414 @@ def render_models(df):
             with col2:
                 st.markdown(f"**Training Data Size:** {len(X_train)}")
                 st.markdown(f"**Testing Data Size:** {len(X_test)}")
+        
+        # ===== MANUAL MODEL SELECTION SECTION =====
+        st.markdown("---")
+        st.markdown("<h4 style='color: #667eea;'>Select Individual Model for Detailed Analysis</h4>", unsafe_allow_html=True)
+        st.markdown("Choose a specific model below to view its detailed metrics and performance analysis.")
+        
+        # Create tabs for automatic vs manual analysis
+        tab1, tab2 = st.tabs(["Automatic (All Models)", "Manual (Single Model)"])
+        
+        with tab2:
+            # Manual model selection
+            col1, col2 = st.columns([2, 1])
+            
+            with col1:
+                selected_model_name = st.selectbox(
+                    "Select a Model to Analyze:",
+                    options=results_df['Model'].tolist(),
+                    index=0,
+                    key="manual_model_selection"
+                )
+            
+            with col2:
+                st.markdown("<p style='color: #667eea; margin-top: 30px; text-align: center;'><b>Model Performance</b></p>", unsafe_allow_html=True)
+            
+            if selected_model_name:
+                # Get model metrics
+                selected_model_row = results_df[results_df['Model'] == selected_model_name].iloc[0]
+                selected_model_obj = trained_models[selected_model_name]
+                selected_predictions = predictions[selected_model_name]
+                
+                st.markdown("---")
+                
+                # Display selected model metrics in columns
+                metric_cols = st.columns(4) if problem_type == 'classification' else st.columns(4)
+                
+                if problem_type == 'classification':
+                    # Classification metrics
+                    with metric_cols[0]:
+                        accuracy = accuracy_score(y_test, selected_predictions)
+                        st.metric("Accuracy", f"{accuracy*100:.2f}%")
+                    
+                    with metric_cols[1]:
+                        precision = precision_score(y_test, selected_predictions, average='weighted', zero_division=0)
+                        st.metric("Precision", f"{precision*100:.2f}%")
+                    
+                    with metric_cols[2]:
+                        recall = recall_score(y_test, selected_predictions, average='weighted', zero_division=0)
+                        st.metric("Recall", f"{recall*100:.2f}%")
+                    
+                    with metric_cols[3]:
+                        f1 = f1_score(y_test, selected_predictions, average='weighted', zero_division=0)
+                        st.metric("F1-Score", f"{f1*100:.2f}%")
+                
+                else:
+                    # Regression metrics
+                    with metric_cols[0]:
+                        r2 = r2_score(y_test, selected_predictions)
+                        st.metric("R² Score", f"{r2:.4f}")
+                    
+                    with metric_cols[1]:
+                        mae = mean_absolute_error(y_test, selected_predictions)
+                        st.metric("MAE", f"{mae:.4f}")
+                    
+                    with metric_cols[2]:
+                        mse = mean_squared_error(y_test, selected_predictions)
+                        st.metric("MSE", f"{mse:.4f}")
+                    
+                    with metric_cols[3]:
+                        rmse = np.sqrt(mse)
+                        st.metric("RMSE", f"{rmse:.4f}")
+                
+                st.markdown("---")
+                
+                # ===== PARAMETER ADJUSTMENT SECTION =====
+                with st.expander("🔧 Customize Model Parameters & Retrain", expanded=False):
+                    st.markdown("<p style='color: #667eea; font-weight: 600;'>Modify parameters below and click 'Retrain Model' to see how changes affect performance</p>", unsafe_allow_html=True)
+                    
+                    adjusted_params = {}
+                    current_params = selected_model_obj.get_params()
+                    
+                    # Create parameter adjustment widgets based on model type
+                    param_cols = st.columns(2)
+                    param_col_idx = 0
+                    
+                    for param_name, param_value in current_params.items():
+                        # Skip certain parameters
+                        if param_name in ['random_state', 'n_jobs', 'verbose', 'warm_start']:
+                            continue
+                        
+                        with param_cols[param_col_idx % 2]:
+                            if isinstance(param_value, bool):
+                                adjusted_params[param_name] = st.checkbox(
+                                    f"{param_name}",
+                                    value=param_value,
+                                    key=f"param_{param_name}_{selected_model_name}"
+                                )
+                            elif isinstance(param_value, int):
+                                # Set reasonable ranges for integer parameters
+                                if 'depth' in param_name.lower():
+                                    min_val, max_val = 1, 20
+                                elif 'neighbors' in param_name.lower():
+                                    min_val, max_val = 1, 20
+                                elif 'estimators' in param_name.lower():
+                                    min_val, max_val = 10, 500
+                                else:
+                                    min_val, max_val = max(1, param_value - 10), param_value + 10
+                                
+                                adjusted_params[param_name] = st.slider(
+                                    f"{param_name}",
+                                    min_value=min_val,
+                                    max_value=max_val,
+                                    value=param_value,
+                                    key=f"param_{param_name}_{selected_model_name}"
+                                )
+                            elif isinstance(param_value, float):
+                                adjusted_params[param_name] = st.slider(
+                                    f"{param_name}",
+                                    min_value=0.0,
+                                    max_value=1.0,
+                                    value=param_value,
+                                    step=0.01,
+                                    key=f"param_{param_name}_{selected_model_name}"
+                                )
+                            elif isinstance(param_value, str):
+                                options = {
+                                    'kernel': ['linear', 'rbf', 'poly', 'sigmoid'],
+                                    'criterion': ['gini', 'entropy'],
+                                    'splitter': ['best', 'random'],
+                                    'loss': ['linear', 'square', 'exponential', 'squared_error'],
+                                }
+                                if param_name in options:
+                                    adjusted_params[param_name] = st.selectbox(
+                                        f"{param_name}",
+                                        options=options[param_name],
+                                        index=options[param_name].index(param_value) if param_value in options[param_name] else 0,
+                                        key=f"param_{param_name}_{selected_model_name}"
+                                    )
+                                else:
+                                    adjusted_params[param_name] = param_value
+                            else:
+                                adjusted_params[param_name] = param_value
+                            param_col_idx += 1
+                    
+                    # Retrain button
+                    col1, col2 = st.columns([1, 3])
+                    with col1:
+                        if st.button("🔄 Retrain Model", key=f"retrain_{selected_model_name}"):
+                            # Convert to appropriate types
+                            adjusted_params_converted = convert_param_values(adjusted_params)
+                            
+                            try:
+                                # Create new model with adjusted parameters
+                                if selected_model_name == 'Logistic Regression':
+                                    new_model = LogisticRegression(max_iter=1000, random_state=42, **adjusted_params_converted)
+                                elif selected_model_name == 'Decision Tree':
+                                    if problem_type == 'classification':
+                                        new_model = DecisionTreeClassifier(random_state=42, **adjusted_params_converted)
+                                    else:
+                                        new_model = DecisionTreeRegressor(random_state=42, **adjusted_params_converted)
+                                elif selected_model_name == 'Random Forest':
+                                    if problem_type == 'classification':
+                                        new_model = RandomForestClassifier(random_state=42, **adjusted_params_converted)
+                                    else:
+                                        new_model = RandomForestRegressor(random_state=42, **adjusted_params_converted)
+                                elif selected_model_name == 'Gradient Boosting':
+                                    if problem_type == 'classification':
+                                        new_model = GradientBoostingClassifier(random_state=42, **adjusted_params_converted)
+                                    else:
+                                        new_model = GradientBoostingRegressor(random_state=42, **adjusted_params_converted)
+                                elif selected_model_name == 'K-Nearest Neighbors':
+                                    if problem_type == 'classification':
+                                        new_model = KNeighborsClassifier(**adjusted_params_converted)
+                                    else:
+                                        new_model = KNeighborsRegressor(**adjusted_params_converted)
+                                elif selected_model_name == 'Support Vector Machine':
+                                    if problem_type == 'classification':
+                                        new_model = SVC(random_state=42, **adjusted_params_converted)
+                                    else:
+                                        new_model = SVR(**adjusted_params_converted)
+                                elif selected_model_name == 'Naive Bayes':
+                                    new_model = GaussianNB(**adjusted_params_converted)
+                                elif selected_model_name == 'Linear Regression':
+                                    new_model = LinearRegression(**adjusted_params_converted)
+                                
+                                # Train with scaled features if needed
+                                if selected_model_name in ['Support Vector Machine', 'K-Nearest Neighbors', 'Logistic Regression']:
+                                    new_model.fit(X_train_scaled, y_train)
+                                    new_predictions = new_model.predict(X_test_scaled)
+                                else:
+                                    new_model.fit(X_train, y_train)
+                                    new_predictions = new_model.predict(X_test)
+                                
+                                # Calculate new metrics
+                                st.success("✅ Model retrained successfully!")
+                                
+                                # Display new metrics
+                                col1, col2, col3, col4 = st.columns(4)
+                                
+                                if problem_type == 'classification':
+                                    new_accuracy = accuracy_score(y_test, new_predictions)
+                                    new_precision = precision_score(y_test, new_predictions, average='weighted', zero_division=0)
+                                    new_recall = recall_score(y_test, new_predictions, average='weighted', zero_division=0)
+                                    new_f1 = f1_score(y_test, new_predictions, average='weighted', zero_division=0)
+                                    
+                                    with col1:
+                                        old_accuracy = accuracy_score(y_test, selected_predictions)
+                                        st.metric("Accuracy (Old)", f"{old_accuracy*100:.2f}%")
+                                    with col2:
+                                        st.metric("Accuracy (New)", f"{new_accuracy*100:.2f}%", 
+                                                 delta=f"{(new_accuracy-old_accuracy)*100:.2f}%")
+                                    with col3:
+                                        st.metric("F1-Score (Old)", f"{f1*100:.2f}%")
+                                    with col4:
+                                        st.metric("F1-Score (New)", f"{new_f1*100:.2f}%",
+                                                 delta=f"{(new_f1-f1)*100:.2f}%")
+                                else:
+                                    new_r2 = r2_score(y_test, new_predictions)
+                                    new_mae = mean_absolute_error(y_test, new_predictions)
+                                    new_mse = mean_squared_error(y_test, new_predictions)
+                                    new_rmse = np.sqrt(new_mse)
+                                    
+                                    with col1:
+                                        old_r2 = r2_score(y_test, selected_predictions)
+                                        st.metric("R² (Old)", f"{old_r2:.4f}")
+                                    with col2:
+                                        st.metric("R² (New)", f"{new_r2:.4f}",
+                                                 delta=f"{(new_r2-old_r2):.4f}")
+                                    with col3:
+                                        st.metric("RMSE (Old)", f"{rmse:.4f}")
+                                    with col4:
+                                        st.metric("RMSE (New)", f"{new_rmse:.4f}",
+                                                 delta=f"{(new_rmse-rmse):.4f}")
+                                
+                                # Store retrained model and predictions
+                                st.session_state[f'retrained_{selected_model_name}'] = {
+                                    'model': new_model,
+                                    'predictions': new_predictions,
+                                    'is_retrained': True
+                                }
+                                
+                            except Exception as e:
+                                st.error(f"Error retraining model: {str(e)}")
+                    
+                    with col2:
+                        st.info("💡 Adjust parameters and click 'Retrain Model' to compare old vs new performance")
+                
+                st.markdown("---")
+                
+                # Detailed visualizations for selected model
+                st.markdown(f"<h5 style='color: #667eea;'>Detailed Analysis: {selected_model_name}</h5>", unsafe_allow_html=True)
+                
+                # Use retrained model/predictions if available
+                if f'retrained_{selected_model_name}' in st.session_state and st.session_state[f'retrained_{selected_model_name}']['is_retrained']:
+                    display_model = st.session_state[f'retrained_{selected_model_name}']['model']
+                    display_predictions = st.session_state[f'retrained_{selected_model_name}']['predictions']
+                    st.info("📊 Showing results for the retrained model with custom parameters")
+                else:
+                    display_model = selected_model_obj
+                    display_predictions = selected_predictions
+                
+                if problem_type == 'classification' and n_classes <= 10:
+                    col1, col2 = st.columns([1.5, 1])
+                    
+                    with col1:
+                        st.markdown("<p style='color: #764ba2; font-weight: 600;'>Confusion Matrix</p>", unsafe_allow_html=True)
+                        cm = confusion_matrix(y_test, display_predictions)
+                        
+                        fig, ax = plt.subplots(figsize=(8, 6))
+                        fig.patch.set_facecolor('#FAFBFF')
+                        ax.set_facecolor('#F5F7FA')
+                        
+                        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=True,
+                                   xticklabels=target_classes, yticklabels=target_classes,
+                                   ax=ax, cbar_kws={'label': 'Count'}, linewidths=2, linecolor='white',
+                                   annot_kws={'size': 11, 'weight': 'bold', 'color': '#424242'})
+                        
+                        ax.set_xlabel('Predicted Label', fontsize=11, fontweight='bold', color='#424242')
+                        ax.set_ylabel('True Label', fontsize=11, fontweight='bold', color='#424242')
+                        ax.set_title(f'Confusion Matrix - {selected_model_name}', fontsize=12, fontweight='bold', color='#667eea')
+                        ax.tick_params(axis='both', labelcolor='#424242')
+                        
+                        st.pyplot(fig)
+                    
+                    with col2:
+                        st.markdown("<p style='color: #764ba2; font-weight: 600;'>Classification Report</p>", unsafe_allow_html=True)
+                        report = classification_report(y_test, display_predictions, target_names=target_classes, output_dict=True)
+                        report_df = pd.DataFrame(report).transpose()
+                        st.dataframe(report_df.round(3), use_container_width=True, height=300)
+                    
+                    # Model-specific visualizations for classification
+                    st.markdown("---")
+                    st.markdown("<h5 style='color: #667eea;'>Model-Specific Visualizations</h5>", unsafe_allow_html=True)
+                    
+                    if selected_model_name == 'Decision Tree':
+                        st.markdown("<p style='color: #764ba2; font-weight: 600;'>Decision Tree Structure</p>", unsafe_allow_html=True)
+                        plot_decision_tree_viz(display_model, feature_names=selected_features, 
+                                             class_names=target_classes, max_depth=3)
+                    
+                    elif selected_model_name in ['Random Forest', 'Gradient Boosting']:
+                        st.markdown("<p style='color: #764ba2; font-weight: 600;'>Feature Importances</p>", unsafe_allow_html=True)
+                        if plot_feature_importance(display_model, selected_features):
+                            st.success(f"✅ Feature importance plot displayed for {selected_model_name}")
+                    
+                    elif selected_model_name == 'Support Vector Machine':
+                        st.info("ℹ️ SVM is a kernel-based model. Feature importance is not directly available.")
+                        st.markdown("<p style='color: #667eea;'>For SVM, examine the decision boundary through prediction patterns.</p>", unsafe_allow_html=True)
+                
+                elif problem_type == 'regression':
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown("<p style='color: #764ba2; font-weight: 600;'>Predicted vs Actual</p>", unsafe_allow_html=True)
+                        
+                        fig, ax = plt.subplots(figsize=(8, 6))
+                        fig.patch.set_facecolor('#FAFBFF')
+                        ax.set_facecolor('#F5F7FA')
+                        
+                        ax.scatter(y_test, display_predictions, alpha=0.6, color='#5DA9E8', edgecolor='white', linewidth=1, s=50)
+                        min_val = min(y_test.min(), display_predictions.min())
+                        max_val = max(y_test.max(), display_predictions.max())
+                        ax.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2, label='Perfect Prediction')
+                        
+                        ax.set_xlabel('Actual Values', fontsize=11, fontweight='bold', color='#424242')
+                        ax.set_ylabel('Predicted Values', fontsize=11, fontweight='bold', color='#424242')
+                        ax.set_title(f'Predicted vs Actual - {selected_model_name}', fontsize=12, fontweight='bold', color='#667eea')
+                        ax.legend()
+                        ax.grid(True, alpha=0.3)
+                        ax.tick_params(axis='both', labelcolor='#424242')
+                        
+                        st.pyplot(fig)
+                    
+                    with col2:
+                        st.markdown("<p style='color: #764ba2; font-weight: 600;'>Residuals Analysis</p>", unsafe_allow_html=True)
+                        residuals = y_test - display_predictions
+                        
+                        fig, ax = plt.subplots(figsize=(8, 6))
+                        fig.patch.set_facecolor('#FAFBFF')
+                        ax.set_facecolor('#F5F7FA')
+                        
+                        ax.hist(residuals, bins=20, color='#5DA9E8', edgecolor='white', linewidth=1.5, alpha=0.7)
+                        ax.axvline(x=0, color='red', linestyle='--', linewidth=2, label='Zero Error')
+                        
+                        ax.set_xlabel('Residuals', fontsize=11, fontweight='bold', color='#424242')
+                        ax.set_ylabel('Frequency', fontsize=11, fontweight='bold', color='#424242')
+                        ax.set_title(f'Residuals Distribution - {selected_model_name}', fontsize=12, fontweight='bold', color='#667eea')
+                        ax.legend()
+                        ax.grid(True, alpha=0.3, axis='y')
+                        ax.tick_params(axis='both', labelcolor='#424242')
+                        
+                        st.pyplot(fig)
+                    
+                    # Model-specific visualizations for regression
+                    st.markdown("---")
+                    st.markdown("<h5 style='color: #667eea;'>Model-Specific Visualizations</h5>", unsafe_allow_html=True)
+                    
+                    if selected_model_name == 'Decision Tree':
+                        st.markdown("<p style='color: #764ba2; font-weight: 600;'>Decision Tree Structure</p>", unsafe_allow_html=True)
+                        plot_decision_tree_viz(display_model, feature_names=selected_features, 
+                                             class_names=None, max_depth=3)
+                    
+                    elif selected_model_name in ['Random Forest', 'Gradient Boosting']:
+                        st.markdown("<p style='color: #764ba2; font-weight: 600;'>Feature Importances</p>", unsafe_allow_html=True)
+                        if plot_feature_importance(display_model, selected_features):
+                            st.success(f"✅ Feature importance plot displayed for {selected_model_name}")
+                    
+                    elif selected_model_name == 'Support Vector Machine':
+                        st.info("ℹ️ SVM is a kernel-based model. Feature importance is not directly available.")
+                        st.markdown("<p style='color: #667eea;'>For SVM, examine the decision boundary through prediction patterns.</p>", unsafe_allow_html=True)
+                
+                # Additional model insights
+                st.markdown("---")
+                st.markdown("<h5 style='color: #667eea;'>Model Information</h5>", unsafe_allow_html=True)
+                
+                info_col1, info_col2, info_col3 = st.columns(3)
+                
+                with info_col1:
+                    st.markdown(f"""
+                    <div style='background: linear-gradient(135deg, #E3F2FD 0%, #F3E5F5 100%); 
+                                padding: 15px; border-radius: 10px; border-left: 4px solid #5DA9E8;'>
+                        <h6 style='color: #1565C0; margin: 0;'>Algorithm</h6>
+                        <p style='color: #424242; margin: 5px 0; font-weight: 600;'>{selected_model_name}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with info_col2:
+                    st.markdown(f"""
+                    <div style='background: linear-gradient(135deg, #FFF3E0 0%, #FCE4EC 100%); 
+                                padding: 15px; border-radius: 10px; border-left: 4px solid #FFB347;'>
+                        <h6 style='color: #E65100; margin: 0;'>Training Samples</h6>
+                        <p style='color: #424242; margin: 5px 0; font-weight: 600;'>{len(X_train)}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with info_col3:
+                    st.markdown(f"""
+                    <div style='background: linear-gradient(135deg, #E8F5E9 0%, #F1F8E9 100%); 
+                                padding: 15px; border-radius: 10px; border-left: 4px solid #66BB6A;'>
+                        <h6 style='color: #2E7D32; margin: 0;'>Test Samples</h6>
+                        <p style='color: #424242; margin: 5px 0; font-weight: 600;'>{len(X_test)}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                # Model hyperparameters (if available)
+                if hasattr(display_model, 'get_params'):
+                    with st.expander("📋 Model Hyperparameters"):
+                        params = display_model.get_params()
+                        params_df = pd.DataFrame(list(params.items()), columns=['Parameter', 'Value'])
+                        st.dataframe(params_df, use_container_width=True)
     
     except Exception as e:
         st.error(f"An error occurred: {str(e)}")
