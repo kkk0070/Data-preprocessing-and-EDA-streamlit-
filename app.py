@@ -616,12 +616,21 @@ def render_preprocess(df):
             numeric_cols = processed_df.select_dtypes(include=[np.number]).columns
             if len(numeric_cols) > 1:
                 # Assume last column is target if not specified
-                target_col = st.selectbox(
+                # Create formatted column names with data types
+                all_cols_for_fs = processed_df.columns.tolist()
+                formatted_cols_for_fs = [f"{col} ({str(processed_df[col].dtype)})" for col in all_cols_for_fs]
+                col_dtype_map_fs = {f"{col} ({str(processed_df[col].dtype)})": col for col in all_cols_for_fs}
+                
+                default_target_fs = all_cols_for_fs[-1]
+                default_target_fs_formatted = f"{default_target_fs} ({str(processed_df[default_target_fs].dtype)})"
+                
+                target_col_formatted = st.selectbox(
                     "Select target column for feature selection:",
-                    processed_df.columns.tolist(),
-                    index=len(processed_df.columns)-1,
+                    formatted_cols_for_fs,
+                    index=formatted_cols_for_fs.index(default_target_fs_formatted) if default_target_fs_formatted in formatted_cols_for_fs else len(formatted_cols_for_fs)-1,
                     key="target_col_fs"
                 )
+                target_col = col_dtype_map_fs[target_col_formatted]
 
                 feature_cols = [col for col in numeric_cols if col != target_col]
                 if len(feature_cols) > 1:
@@ -916,28 +925,37 @@ def render_models(df):
     # Feature and Target Selection with auto-defaults
     col1, col2 = st.columns(2)
 
+    # Create formatted column names with data types
+    formatted_cols = [f"{col} ({str(df[col].dtype)})" for col in all_cols]
+    col_dtype_map = {f"{col} ({str(df[col].dtype)})": col for col in all_cols}
+
     with col1:
         st.write("**Select Target Column:**")
         default_target = numeric_cols[-1] if numeric_cols else all_cols[0]
-        target_col = st.selectbox(
+        default_target_formatted = f"{default_target} ({str(df[default_target].dtype)})"
+        target_col_formatted = st.selectbox(
             "Choose target column to predict",
-            all_cols,
-            index=all_cols.index(default_target) if default_target in all_cols else 0,
+            formatted_cols,
+            index=formatted_cols.index(default_target_formatted) if default_target_formatted in formatted_cols else 0,
             key="target_selection"
         )
+        target_col = col_dtype_map[target_col_formatted]
 
     with col2:
         st.write("**Select Features (Predictors):**")
         available_features = [col for col in all_cols if col != target_col]
+        formatted_available_features = [f"{col} ({str(df[col].dtype)})" for col in available_features]
         default_features = [col for col in available_features if col in numeric_cols][:min(len(available_features), 5)]
         if not default_features and available_features:
             default_features = available_features[:min(len(available_features), 5)]
-        selected_features = st.multiselect(
+        default_features_formatted = [f"{col} ({str(df[col].dtype)})" for col in default_features]
+        selected_features_formatted = st.multiselect(
             "Choose columns as features",
-            available_features,
-            default=default_features,
+            formatted_available_features,
+            default=default_features_formatted,
             key="feature_selection"
         )
+        selected_features = [col_dtype_map[formatted_col] for formatted_col in selected_features_formatted]
     
     if not selected_features:
         st.error("Please select at least one feature column")
