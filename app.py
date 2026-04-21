@@ -19,6 +19,61 @@ from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.svm import SVC, SVR
 from sklearn.naive_bayes import GaussianNB
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report, mean_squared_error, mean_absolute_error, r2_score
+import json
+import os
+from datetime import datetime
+
+# ==================== FEATURE 1: DATA UPLOAD HISTORY ====================
+
+def get_upload_history_file():
+    """Get path to upload history JSON file"""
+    return os.path.expanduser("~/.eda_dashboard_history.json")
+
+def load_upload_history():
+    """Load upload history from file"""
+    history_file = get_upload_history_file()
+    if os.path.exists(history_file):
+        try:
+            with open(history_file, 'r') as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+def save_upload_history(history):
+    """Save upload history to file"""
+    history_file = get_upload_history_file()
+    try:
+        with open(history_file, 'w') as f:
+            json.dump(history, f, indent=2)
+    except Exception as e:
+        st.warning(f"Could not save upload history: {e}")
+
+def add_to_upload_history(filename, filepath):
+    """Add file to upload history"""
+    history = load_upload_history()
+    
+    # Check if file already exists in history
+    for item in history:
+        if item['filename'] == filename:
+            # Update timestamp
+            item['last_accessed'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            item['access_count'] = item.get('access_count', 0) + 1
+            save_upload_history(history)
+            return
+    
+    # Add new entry
+    history.insert(0, {
+        'filename': filename,
+        'filepath': filepath,
+        'first_uploaded': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        'last_accessed': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        'access_count': 1
+    })
+    
+    # Keep only last 10 files
+    history = history[:10]
+    save_upload_history(history)
 
 st.set_page_config(
     page_title="EDA Dashboard",
@@ -2069,6 +2124,23 @@ def main():
     """, unsafe_allow_html=True)
 
     uploaded_file = st.sidebar.file_uploader("Upload CSV file", type=["csv"])
+    
+    # Track upload history
+    if uploaded_file:
+        add_to_upload_history(uploaded_file.name, uploaded_file.name)
+    
+    # Show recent files
+    history = load_upload_history()
+    if history and len(history) > 0:
+        with st.sidebar.expander("📁 Recent Files"):
+            st.markdown("**Recent uploads (click to note):**")
+            for i, item in enumerate(history[:5]):
+                st.markdown(f"""
+                **{i+1}. {item['filename']}**
+                - Last accessed: {item['last_accessed']}
+                - Access count: {item['access_count']}
+                """)
+    
     activity = st.sidebar.radio(
         "Choose view",
         ["EDA(basic)", "Sweetviz", "Plots", "Handle Missing Values", "Preprocess Data", "ML Models"],
