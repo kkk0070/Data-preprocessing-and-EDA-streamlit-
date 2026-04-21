@@ -175,12 +175,8 @@ def redo_action():
         return state
     return None
 
-<<<<<<< HEAD
 # ==================== FEATURE 4: TUTORIAL MODE ====================
 
-=======
-# 4. TUTORIAL MODE
->>>>>>> c2ec4aa112b9bcaa17124229f5d054e5f378d0c0
 def get_tutorial_config():
     """Get tutorial configuration"""
     return {
@@ -230,56 +226,6 @@ def get_tutorial_config():
             **Pro Tip:** Check the data quality recommendations before training!'''
         }
     }
-<<<<<<< HEAD
-=======
-
-# 5. THEME TOGGLE
-def get_current_theme():
-    """Get current theme from session state"""
-    if 'app_theme' not in st.session_state:
-        st.session_state.app_theme = 'light'
-    return st.session_state.app_theme
-
-def set_theme(theme):
-    """Set application theme"""
-    st.session_state.app_theme = theme
-
-def get_theme_css():
-    """Get CSS for current theme"""
-    theme = get_current_theme()
-    
-    if theme == 'dark':
-        return """
-        <style>
-            :root {
-                --bg-primary: #1e1e1e;
-                --bg-secondary: #2d2d2d;
-                --text-primary: #e0e0e0;
-                --text-secondary: #b0b0b0;
-            }
-            
-            .stApp {
-                background: linear-gradient(135deg, #1a1a1a 0%, #2d2d3d 100%) !important;
-                color: var(--text-primary) !important;
-            }
-            
-            [data-testid="stSidebar"] {
-                background: linear-gradient(180deg, #1e1e1e 0%, #2d2d2d 100%) !important;
-            }
-            
-            h1, h2, h3, h4 {
-                color: #64b5f6 !important;
-            }
-            
-            p, span, label {
-                color: var(--text-primary) !important;
-            }
-        </style>
-        """
-    else:
-        # Light theme (default)
-        return ""
->>>>>>> c2ec4aa112b9bcaa17124229f5d054e5f378d0c0
 
 st.set_page_config(
     page_title="EDA Dashboard",
@@ -2322,10 +2268,6 @@ def main():
     # Initialize UX state
     init_undo_redo_state()
     
-<<<<<<< HEAD
-=======
-    # ==================== SIDEBAR HEADER ====================
->>>>>>> c2ec4aa112b9bcaa17124229f5d054e5f378d0c0
     st.sidebar.markdown("""
     <h2 style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
@@ -2334,44 +2276,6 @@ def main():
     </h2>
     """, unsafe_allow_html=True)
     
-<<<<<<< HEAD
-=======
-    # ==================== UX FEATURES IN SIDEBAR ====================
-    
-    # Theme Toggle
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("<h4 style='color: #667eea;'>🎨 Appearance</h4>", unsafe_allow_html=True)
-    theme_col1, theme_col2 = st.sidebar.columns(2)
-    with theme_col1:
-        if st.button("☀️ Light", key="light_theme"):
-            set_theme('light')
-            st.rerun()
-    with theme_col2:
-        if st.button("🌙 Dark", key="dark_theme"):
-            set_theme('dark')
-            st.rerun()
-    
-    # Tutorial Mode
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("<h4 style='color: #667eea;'>📚 Help & Tutorials</h4>", unsafe_allow_html=True)
-    if st.sidebar.button("🎓 Start Interactive Tutorial", use_container_width=True):
-        st.session_state.show_tutorial = not st.session_state.get('show_tutorial', False)
-        st.rerun()
-    
-    # Show tutorial if enabled
-    if st.session_state.get('show_tutorial', False):
-        with st.sidebar.expander("📖 Tutorial Content"):
-            tutorial_config = get_tutorial_config()
-            tutorial_topic = st.selectbox(
-                "Select tutorial topic",
-                list(tutorial_config.keys())
-            )
-            if tutorial_topic:
-                topic_data = tutorial_config[tutorial_topic]
-                st.markdown(f"**{topic_data['title']}**")
-                st.markdown(topic_data['content'])
-    
->>>>>>> c2ec4aa112b9bcaa17124229f5d054e5f378d0c0
     # Undo/Redo Controls
     st.sidebar.markdown("---")
     st.sidebar.markdown("<h4 style='color: #667eea;'>↩️ History</h4>", unsafe_allow_html=True)
@@ -2393,11 +2297,7 @@ def main():
     
     st.sidebar.markdown(f"<small>Undo: {len(st.session_state.get('undo_stack', []))} | Redo: {len(st.session_state.get('redo_stack', []))}</small>", unsafe_allow_html=True)
     
-<<<<<<< HEAD
     # Data upload section
-=======
-    # ==================== DATA UPLOAD SECTION ====================
->>>>>>> c2ec4aa112b9bcaa17124229f5d054e5f378d0c0
     st.sidebar.markdown("---")
     st.sidebar.markdown("""
     <p style='color: #667eea; text-align: center; font-weight: 600;'>
@@ -2407,11 +2307,7 @@ def main():
 
     uploaded_file = st.sidebar.file_uploader("Upload CSV file", type=["csv"])
     
-<<<<<<< HEAD
     # Track upload history
-=======
-    # Upload History
->>>>>>> c2ec4aa112b9bcaa17124229f5d054e5f378d0c0
     if uploaded_file:
         add_to_upload_history(uploaded_file.name, uploaded_file.name)
     
@@ -2427,20 +2323,12 @@ def main():
                 - Access count: {item['access_count']}
                 """)
     
-<<<<<<< HEAD
-=======
-    # ==================== ACTIVITY SELECTION ====================
->>>>>>> c2ec4aa112b9bcaa17124229f5d054e5f378d0c0
     activity = st.sidebar.radio(
         "Choose view",
         ["EDA(basic)", "Sweetviz", "Plots", "Handle Missing Values", "Preprocess Data", "ML Models"],
     )
     
-<<<<<<< HEAD
     # Saved Pipelines section
-=======
-    # ==================== SAVED PIPELINES ====================
->>>>>>> c2ec4aa112b9bcaa17124229f5d054e5f378d0c0
     st.sidebar.markdown("---")
     st.sidebar.markdown("<h4 style='color: #667eea;'>💾 Saved Pipelines</h4>", unsafe_allow_html=True)
     
@@ -2448,11 +2336,7 @@ def main():
     if pipelines:
         with st.sidebar.expander("📋 My Pipelines"):
             for pipeline_name in list(pipelines.keys()):
-<<<<<<< HEAD
                 col1, col2 = st.sidebar.columns([3, 1])
-=======
-                col1, col2 = st.columns([3, 1])
->>>>>>> c2ec4aa112b9bcaa17124229f5d054e5f378d0c0
                 with col1:
                     st.markdown(f"**{pipeline_name}**")
                     st.caption(f"Created: {pipelines[pipeline_name]['created_at']}")
