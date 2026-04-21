@@ -19,6 +19,258 @@ from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.svm import SVC, SVR
 from sklearn.naive_bayes import GaussianNB
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report, mean_squared_error, mean_absolute_error, r2_score
+import json
+import os
+from datetime import datetime
+
+# ==================== USER EXPERIENCE FEATURES ====================
+
+# 1. DATA UPLOAD HISTORY MANAGEMENT
+def get_upload_history_file():
+    """Get path to upload history JSON file"""
+    return os.path.expanduser("~/.eda_dashboard_history.json")
+
+def load_upload_history():
+    """Load upload history from file"""
+    history_file = get_upload_history_file()
+    if os.path.exists(history_file):
+        try:
+            with open(history_file, 'r') as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+def save_upload_history(history):
+    """Save upload history to file"""
+    history_file = get_upload_history_file()
+    try:
+        with open(history_file, 'w') as f:
+            json.dump(history, f, indent=2)
+    except Exception as e:
+        st.warning(f"Could not save upload history: {e}")
+
+def add_to_upload_history(filename, filepath):
+    """Add file to upload history"""
+    history = load_upload_history()
+    
+    # Check if file already exists in history
+    for item in history:
+        if item['filename'] == filename:
+            # Update timestamp
+            item['last_accessed'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            item['access_count'] = item.get('access_count', 0) + 1
+            save_upload_history(history)
+            return
+    
+    # Add new entry
+    history.insert(0, {
+        'filename': filename,
+        'filepath': filepath,
+        'first_uploaded': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        'last_accessed': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        'access_count': 1
+    })
+    
+    # Keep only last 10 files
+    history = history[:10]
+    save_upload_history(history)
+
+# 2. SAVED PIPELINES MANAGEMENT
+def get_pipelines_file():
+    """Get path to saved pipelines JSON file"""
+    return os.path.expanduser("~/.eda_dashboard_pipelines.json")
+
+def load_saved_pipelines():
+    """Load saved pipelines from file"""
+    pipelines_file = get_pipelines_file()
+    if os.path.exists(pipelines_file):
+        try:
+            with open(pipelines_file, 'r') as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def save_pipeline(pipeline_name, preprocessing_steps):
+    """Save a preprocessing pipeline"""
+    pipelines = load_saved_pipelines()
+    pipelines[pipeline_name] = {
+        'steps': preprocessing_steps,
+        'created_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        'description': f"Pipeline with {len(preprocessing_steps)} steps"
+    }
+    
+    pipelines_file = get_pipelines_file()
+    try:
+        with open(pipelines_file, 'w') as f:
+            json.dump(pipelines, f, indent=2)
+        return True
+    except Exception as e:
+        st.error(f"Could not save pipeline: {e}")
+        return False
+
+def delete_pipeline(pipeline_name):
+    """Delete a saved pipeline"""
+    pipelines = load_saved_pipelines()
+    if pipeline_name in pipelines:
+        del pipelines[pipeline_name]
+        pipelines_file = get_pipelines_file()
+        try:
+            with open(pipelines_file, 'w') as f:
+                json.dump(pipelines, f, indent=2)
+            return True
+        except:
+            return False
+    return False
+
+# 3. UNDO/REDO FUNCTIONALITY
+def init_undo_redo_state():
+    """Initialize undo/redo state in session"""
+    if 'undo_stack' not in st.session_state:
+        st.session_state.undo_stack = []
+    if 'redo_stack' not in st.session_state:
+        st.session_state.redo_stack = []
+    if 'current_df' not in st.session_state:
+        st.session_state.current_df = None
+
+def push_to_undo_stack(df, action_description):
+    """Push dataframe state to undo stack"""
+    if 'undo_stack' not in st.session_state:
+        init_undo_redo_state()
+    
+    st.session_state.undo_stack.append({
+        'df': df.copy(),
+        'action': action_description,
+        'timestamp': datetime.now().strftime("%H:%M:%S")
+    })
+    
+    # Limit stack to 20 items
+    if len(st.session_state.undo_stack) > 20:
+        st.session_state.undo_stack.pop(0)
+    
+    # Clear redo stack on new action
+    st.session_state.redo_stack = []
+
+def undo_action():
+    """Undo last action"""
+    if 'undo_stack' not in st.session_state:
+        init_undo_redo_state()
+    
+    if len(st.session_state.undo_stack) > 0:
+        state = st.session_state.undo_stack.pop()
+        st.session_state.redo_stack.append(state)
+        return state
+    return None
+
+def redo_action():
+    """Redo last undone action"""
+    if 'redo_stack' not in st.session_state:
+        init_undo_redo_state()
+    
+    if len(st.session_state.redo_stack) > 0:
+        state = st.session_state.redo_stack.pop()
+        st.session_state.undo_stack.append(state)
+        return state
+    return None
+
+# 4. TUTORIAL MODE
+def get_tutorial_config():
+    """Get tutorial configuration"""
+    return {
+        'welcome': {
+            'title': '👋 Welcome to EDA Dashboard!',
+            'content': '''This is an interactive Exploratory Data Analysis (EDA) tool that helps you:
+            - Load and explore CSV datasets
+            - Visualize data distributions
+            - Preprocess and clean data
+            - Train machine learning models
+            - Compare model performance
+            
+            **Tip:** Start by uploading a CSV file in the sidebar!'''
+        },
+        'eda_basic': {
+            'title': '📊 Basic EDA Guide',
+            'content': '''Here you can:
+            - View dataset shape and columns
+            - Check data types and missing values
+            - See summary statistics
+            - Explore correlation heatmap
+            - View column value distributions
+            
+            **Pro Tip:** Use the checkboxes to toggle different analyses!'''
+        },
+        'preprocessing': {
+            'title': '🔧 Data Preprocessing Guide',
+            'content': '''Prepare your data by:
+            - Handling missing values (drop, fill, etc.)
+            - Detecting and treating outliers
+            - Encoding categorical variables
+            - Scaling/normalizing numeric features
+            - Feature selection
+            
+            **Pro Tip:** Save your preprocessing steps as a pipeline for reuse!'''
+        },
+        'ml_models': {
+            'title': '🤖 Machine Learning Guide',
+            'content': '''Train and compare models:
+            - Select target and feature columns
+            - View data insights and recommendations
+            - Train multiple models automatically
+            - Compare performance metrics
+            - Fine-tune hyperparameters
+            - Export predictions
+            
+            **Pro Tip:** Check the data quality recommendations before training!'''
+        }
+    }
+
+# 5. THEME TOGGLE
+def get_current_theme():
+    """Get current theme from session state"""
+    if 'app_theme' not in st.session_state:
+        st.session_state.app_theme = 'light'
+    return st.session_state.app_theme
+
+def set_theme(theme):
+    """Set application theme"""
+    st.session_state.app_theme = theme
+
+def get_theme_css():
+    """Get CSS for current theme"""
+    theme = get_current_theme()
+    
+    if theme == 'dark':
+        return """
+        <style>
+            :root {
+                --bg-primary: #1e1e1e;
+                --bg-secondary: #2d2d2d;
+                --text-primary: #e0e0e0;
+                --text-secondary: #b0b0b0;
+            }
+            
+            .stApp {
+                background: linear-gradient(135deg, #1a1a1a 0%, #2d2d3d 100%) !important;
+                color: var(--text-primary) !important;
+            }
+            
+            [data-testid="stSidebar"] {
+                background: linear-gradient(180deg, #1e1e1e 0%, #2d2d2d 100%) !important;
+            }
+            
+            h1, h2, h3, h4 {
+                color: #64b5f6 !important;
+            }
+            
+            p, span, label {
+                color: var(--text-primary) !important;
+            }
+        </style>
+        """
+    else:
+        # Light theme (default)
+        return ""
 
 st.set_page_config(
     page_title="EDA Dashboard",
@@ -279,6 +531,9 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+# Apply theme CSS
+st.markdown(get_theme_css(), unsafe_allow_html=True)
 
 
 def render_html_report(path, height=700):
@@ -2055,13 +2310,76 @@ def render_models(df):
 
 
 def main():
+    # Initialize UX state
+    init_undo_redo_state()
+    
+    # ==================== SIDEBAR HEADER ====================
     st.sidebar.markdown("""
     <h2 style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
                background-clip: text; text-align: center; padding: 10px;'>
-    Activity selector
+    📊 EDA Dashboard
     </h2>
     """, unsafe_allow_html=True)
+    
+    # ==================== UX FEATURES IN SIDEBAR ====================
+    
+    # Theme Toggle
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("<h4 style='color: #667eea;'>🎨 Appearance</h4>", unsafe_allow_html=True)
+    theme_col1, theme_col2 = st.sidebar.columns(2)
+    with theme_col1:
+        if st.button("☀️ Light", key="light_theme"):
+            set_theme('light')
+            st.rerun()
+    with theme_col2:
+        if st.button("🌙 Dark", key="dark_theme"):
+            set_theme('dark')
+            st.rerun()
+    
+    # Tutorial Mode
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("<h4 style='color: #667eea;'>📚 Help & Tutorials</h4>", unsafe_allow_html=True)
+    if st.sidebar.button("🎓 Start Interactive Tutorial", use_container_width=True):
+        st.session_state.show_tutorial = not st.session_state.get('show_tutorial', False)
+        st.rerun()
+    
+    # Show tutorial if enabled
+    if st.session_state.get('show_tutorial', False):
+        with st.sidebar.expander("📖 Tutorial Content"):
+            tutorial_config = get_tutorial_config()
+            tutorial_topic = st.selectbox(
+                "Select tutorial topic",
+                list(tutorial_config.keys())
+            )
+            if tutorial_topic:
+                topic_data = tutorial_config[tutorial_topic]
+                st.markdown(f"**{topic_data['title']}**")
+                st.markdown(topic_data['content'])
+    
+    # Undo/Redo Controls
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("<h4 style='color: #667eea;'>↩️ History</h4>", unsafe_allow_html=True)
+    undo_col, redo_col = st.sidebar.columns(2)
+    with undo_col:
+        if st.button("↶ Undo", use_container_width=True):
+            undo_result = undo_action()
+            if undo_result:
+                st.success(f"Undone: {undo_result['action']}")
+            else:
+                st.info("Nothing to undo")
+    with redo_col:
+        if st.button("↷ Redo", use_container_width=True):
+            redo_result = redo_action()
+            if redo_result:
+                st.success(f"Redone: {redo_result['action']}")
+            else:
+                st.info("Nothing to redo")
+    
+    st.sidebar.markdown(f"<small>Undo: {len(st.session_state.get('undo_stack', []))} | Redo: {len(st.session_state.get('redo_stack', []))}</small>", unsafe_allow_html=True)
+    
+    # ==================== DATA UPLOAD SECTION ====================
+    st.sidebar.markdown("---")
     st.sidebar.markdown("""
     <p style='color: #667eea; text-align: center; font-weight: 600;'>
     Upload a dataset once and then pick the analysis panel.
@@ -2069,11 +2387,48 @@ def main():
     """, unsafe_allow_html=True)
 
     uploaded_file = st.sidebar.file_uploader("Upload CSV file", type=["csv"])
+    
+    # Upload History
+    if uploaded_file:
+        add_to_upload_history(uploaded_file.name, uploaded_file.name)
+    
+    # Show recent files
+    history = load_upload_history()
+    if history and len(history) > 0:
+        with st.sidebar.expander("📁 Recent Files"):
+            st.markdown("**Recent uploads (click to note):**")
+            for i, item in enumerate(history[:5]):
+                st.markdown(f"""
+                **{i+1}. {item['filename']}**
+                - Last accessed: {item['last_accessed']}
+                - Access count: {item['access_count']}
+                """)
+    
+    # ==================== ACTIVITY SELECTION ====================
     activity = st.sidebar.radio(
         "Choose view",
         ["EDA(basic)", "Sweetviz", "Plots", "Handle Missing Values", "Preprocess Data", "ML Models"],
     )
+    
+    # ==================== SAVED PIPELINES ====================
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("<h4 style='color: #667eea;'>💾 Saved Pipelines</h4>", unsafe_allow_html=True)
+    
+    pipelines = load_saved_pipelines()
+    if pipelines:
+        with st.sidebar.expander("📋 My Pipelines"):
+            for pipeline_name in list(pipelines.keys()):
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.markdown(f"**{pipeline_name}**")
+                    st.caption(f"Created: {pipelines[pipeline_name]['created_at']}")
+                with col2:
+                    if st.button("🗑️", key=f"delete_{pipeline_name}"):
+                        if delete_pipeline(pipeline_name):
+                            st.success(f"Deleted: {pipeline_name}")
+                            st.rerun()
 
+    # ==================== MAIN CONTENT ====================
     if uploaded_file is None:
         st.markdown("""
         <h1 style='text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
@@ -2090,6 +2445,10 @@ def main():
             <h3 style='color: #667eea; margin-top: 0;'>Start Your Data Analysis Journey</h3>
             <p style='color: #764ba2; font-size: 16px; font-weight: 600;'>
             Start by uploading a CSV file in the left sidebar to begin exploring!
+            </p>
+            <br/>
+            <p style='color: #667eea; font-size: 14px;'>
+            💡 <b>Tip:</b> Click "🎓 Start Interactive Tutorial" in the sidebar to learn how to use this dashboard!
             </p>
         </div>
         """, unsafe_allow_html=True)
