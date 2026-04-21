@@ -75,12 +75,8 @@ def add_to_upload_history(filename, filepath):
     history = history[:10]
     save_upload_history(history)
 
-<<<<<<< HEAD
 # ==================== FEATURE 2: SAVED PIPELINES ====================
 
-=======
-# 2. SAVED PIPELINES MANAGEMENT
->>>>>>> c2ec4aa112b9bcaa17124229f5d054e5f378d0c0
 def get_pipelines_file():
     """Get path to saved pipelines JSON file"""
     return os.path.expanduser("~/.eda_dashboard_pipelines.json")
@@ -128,12 +124,8 @@ def delete_pipeline(pipeline_name):
             return False
     return False
 
-<<<<<<< HEAD
 # ==================== FEATURE 3: UNDO/REDO FUNCTIONALITY ====================
 
-=======
-# 3. UNDO/REDO FUNCTIONALITY
->>>>>>> c2ec4aa112b9bcaa17124229f5d054e5f378d0c0
 def init_undo_redo_state():
     """Initialize undo/redo state in session"""
     if 'undo_stack' not in st.session_state:
