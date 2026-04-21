@@ -175,6 +175,58 @@ def redo_action():
         return state
     return None
 
+# ==================== FEATURE 4: TUTORIAL MODE ====================
+
+def get_tutorial_config():
+    """Get tutorial configuration"""
+    return {
+        'welcome': {
+            'title': '👋 Welcome to EDA Dashboard!',
+            'content': '''This is an interactive Exploratory Data Analysis (EDA) tool that helps you:
+            - Load and explore CSV datasets
+            - Visualize data distributions
+            - Preprocess and clean data
+            - Train machine learning models
+            - Compare model performance
+            
+            **Tip:** Start by uploading a CSV file in the sidebar!'''
+        },
+        'eda_basic': {
+            'title': '📊 Basic EDA Guide',
+            'content': '''Here you can:
+            - View dataset shape and columns
+            - Check data types and missing values
+            - See summary statistics
+            - Explore correlation heatmap
+            - View column value distributions
+            
+            **Pro Tip:** Use the checkboxes to toggle different analyses!'''
+        },
+        'preprocessing': {
+            'title': '🔧 Data Preprocessing Guide',
+            'content': '''Prepare your data by:
+            - Handling missing values (drop, fill, etc.)
+            - Detecting and treating outliers
+            - Encoding categorical variables
+            - Scaling/normalizing numeric features
+            - Feature selection
+            
+            **Pro Tip:** Save your preprocessing steps as a pipeline for reuse!'''
+        },
+        'ml_models': {
+            'title': '🤖 Machine Learning Guide',
+            'content': '''Train and compare models:
+            - Select target and feature columns
+            - View data insights and recommendations
+            - Train multiple models automatically
+            - Compare performance metrics
+            - Fine-tune hyperparameters
+            - Export predictions
+            
+            **Pro Tip:** Check the data quality recommendations before training!'''
+        }
+    }
+
 st.set_page_config(
     page_title="EDA Dashboard",
     page_icon="",
