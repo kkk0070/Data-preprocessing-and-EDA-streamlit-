@@ -75,6 +75,55 @@ def add_to_upload_history(filename, filepath):
     history = history[:10]
     save_upload_history(history)
 
+# ==================== FEATURE 2: SAVED PIPELINES ====================
+
+def get_pipelines_file():
+    """Get path to saved pipelines JSON file"""
+    return os.path.expanduser("~/.eda_dashboard_pipelines.json")
+
+def load_saved_pipelines():
+    """Load saved pipelines from file"""
+    pipelines_file = get_pipelines_file()
+    if os.path.exists(pipelines_file):
+        try:
+            with open(pipelines_file, 'r') as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def save_pipeline(pipeline_name, preprocessing_steps):
+    """Save a preprocessing pipeline"""
+    pipelines = load_saved_pipelines()
+    pipelines[pipeline_name] = {
+        'steps': preprocessing_steps,
+        'created_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        'description': f"Pipeline with {len(preprocessing_steps)} steps"
+    }
+    
+    pipelines_file = get_pipelines_file()
+    try:
+        with open(pipelines_file, 'w') as f:
+            json.dump(pipelines, f, indent=2)
+        return True
+    except Exception as e:
+        st.error(f"Could not save pipeline: {e}")
+        return False
+
+def delete_pipeline(pipeline_name):
+    """Delete a saved pipeline"""
+    pipelines = load_saved_pipelines()
+    if pipeline_name in pipelines:
+        del pipelines[pipeline_name]
+        pipelines_file = get_pipelines_file()
+        try:
+            with open(pipelines_file, 'w') as f:
+                json.dump(pipelines, f, indent=2)
+            return True
+        except:
+            return False
+    return False
+
 st.set_page_config(
     page_title="EDA Dashboard",
     page_icon="",
@@ -2145,6 +2194,24 @@ def main():
         "Choose view",
         ["EDA(basic)", "Sweetviz", "Plots", "Handle Missing Values", "Preprocess Data", "ML Models"],
     )
+    
+    # Saved Pipelines section
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("<h4 style='color: #667eea;'>💾 Saved Pipelines</h4>", unsafe_allow_html=True)
+    
+    pipelines = load_saved_pipelines()
+    if pipelines:
+        with st.sidebar.expander("📋 My Pipelines"):
+            for pipeline_name in list(pipelines.keys()):
+                col1, col2 = st.sidebar.columns([3, 1])
+                with col1:
+                    st.markdown(f"**{pipeline_name}**")
+                    st.caption(f"Created: {pipelines[pipeline_name]['created_at']}")
+                with col2:
+                    if st.button("🗑️", key=f"delete_{pipeline_name}"):
+                        if delete_pipeline(pipeline_name):
+                            st.success(f"Deleted: {pipeline_name}")
+                            st.rerun()
 
     if uploaded_file is None:
         st.markdown("""
