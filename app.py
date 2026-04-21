@@ -1111,6 +1111,165 @@ def render_models(df):
         </div>
         """, unsafe_allow_html=True)
     
+    # ADVANCED INSIGHTS SECTION
+    st.markdown("---")
+    st.markdown("<h4 style='color: #667eea;'>📊 Advanced Dataset Insights & Recommendations</h4>", unsafe_allow_html=True)
+    
+    # Calculate insights
+    numeric_features = [col for col in selected_features if df[col].dtype in ['int64', 'float64']]
+    categorical_features = [col for col in selected_features if df[col].dtype == 'object']
+    valid_samples = len(df.dropna(subset=selected_features + [target_col]))
+    missing_pct = (1 - valid_samples / len(df)) * 100
+    
+    # Feature distribution insights
+    insights_col1, insights_col2, insights_col3 = st.columns(3)
+    
+    with insights_col1:
+        st.markdown("""
+        <div style='background: linear-gradient(135deg, #FCE4EC 0%, #F8BBD0 100%); 
+                    padding: 12px; border-radius: 8px; border-left: 4px solid #FF6B9D;'>
+            <h6 style='color: #C2185B; margin: 0; font-size: 12px;'>🎯 Feature Composition</h6>
+            <p style='color: #424242; margin: 8px 0; font-size: 13px;'><b>Numeric:</b> {}<br/><b>Categorical:</b> {}</p>
+        </div>
+        """.format(len(numeric_features), len(categorical_features)), unsafe_allow_html=True)
+    
+    with insights_col2:
+        st.markdown("""
+        <div style='background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%); 
+                    padding: 12px; border-radius: 8px; border-left: 4px solid #1976D2;'>
+            <h6 style='color: #0D47A1; margin: 0; font-size: 12px;'>⚠️ Data Completeness</h6>
+            <p style='color: #424242; margin: 8px 0; font-size: 13px;'><b>Valid Samples:</b> {}/{}<br/><b>Missing:</b> {:.1f}%</p>
+        </div>
+        """.format(valid_samples, len(df), missing_pct), unsafe_allow_html=True)
+    
+    with insights_col3:
+        # Feature variability
+        if numeric_features:
+            variance_scores = []
+            for col in numeric_features:
+                col_data = df[col].dropna()
+                if len(col_data) > 0:
+                    variance_scores.append(col_data.std() / (col_data.mean() + 1e-8))
+            avg_cv = np.mean(variance_scores) if variance_scores else 0
+            st.markdown("""
+            <div style='background: linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%); 
+                        padding: 12px; border-radius: 8px; border-left: 4px solid #7B1FA2;'>
+                <h6 style='color: #4A148C; margin: 0; font-size: 12px;'>📈 Feature Variability</h6>
+                <p style='color: #424242; margin: 8px 0; font-size: 13px;'><b>Coefficient of Variation:</b> {:.2f}<br/><b>Status:</b> {}</p>
+            </div>
+            """.format(avg_cv, "High Variance" if avg_cv > 1 else "Moderate" if avg_cv > 0.5 else "Low Variance"), unsafe_allow_html=True)
+    
+    # Class imbalance detection for classification
+    if problem_type_insight == 'Classification':
+        st.markdown("<h6 style='color: #667eea;'>⚖️ Class Balance Analysis</h6>", unsafe_allow_html=True)
+        class_dist = target_data.value_counts()
+        imbalance_ratio = class_dist.max() / class_dist.min()
+        
+        imbalance_col1, imbalance_col2 = st.columns(2)
+        
+        with imbalance_col1:
+            fig, ax = plt.subplots(figsize=(6, 3))
+            fig.patch.set_facecolor('#FAFBFF')
+            ax.set_facecolor('#F5F7FA')
+            class_dist.plot(kind='barh', ax=ax, color=['#5DA9E8', '#FFB347', '#66BB6A', '#FF6B9D'][:len(class_dist)])
+            ax.set_xlabel('Count', fontweight='bold', fontsize=9)
+            ax.set_title('Class Distribution', fontweight='bold', color='#667eea', fontsize=10)
+            ax.grid(axis='x', alpha=0.3)
+            st.pyplot(fig)
+        
+        with imbalance_col2:
+            if imbalance_ratio > 3:
+                imbalance_status = "⚠️ **Highly Imbalanced** - Consider using class weights or resampling techniques"
+                bg_color = "#FFF3E0"
+                text_color = "#E65100"
+            elif imbalance_ratio > 1.5:
+                imbalance_status = "📌 **Moderately Imbalanced** - Monitor metrics closely during evaluation"
+                bg_color = "#FFF8E1"
+                text_color = "#F57F17"
+            else:
+                imbalance_status = "✅ **Well Balanced** - Good class distribution"
+                bg_color = "#E8F5E9"
+                text_color = "#2E7D32"
+            
+            st.markdown(f"""
+            <div style='background: {bg_color}; padding: 12px; border-radius: 8px; border-left: 4px solid {text_color};'>
+                <p style='color: {text_color}; margin: 5px 0; font-size: 13px;'>{imbalance_status}</p>
+                <p style='color: #424242; margin: 5px 0; font-size: 12px;'><b>Imbalance Ratio:</b> {imbalance_ratio:.2f}:1</p>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    # Data quality recommendations
+    st.markdown("<h6 style='color: #667eea;'>💡 Data Quality Recommendations</h6>", unsafe_allow_html=True)
+    
+    recommendations = []
+    
+    # Missing data check
+    if missing_pct > 5:
+        recommendations.append(f"🔴 **High Missing Data ({missing_pct:.1f}%)** - Consider imputation or row removal before training")
+    elif missing_pct > 0:
+        recommendations.append(f"🟡 **Minor Missing Data ({missing_pct:.1f}%)** - Address missing values for optimal performance")
+    else:
+        recommendations.append("✅ **No Missing Data** - Dataset is complete")
+    
+    # Categorical encoding check
+    if categorical_features:
+        recommendations.append(f"⚠️ **Categorical Features Detected** - Ensure proper encoding (Label/One-Hot) in preprocessing")
+    
+    # Feature scaling check
+    if numeric_features and len(numeric_features) > 1:
+        feature_scales = []
+        for col in numeric_features:
+            col_data = df[col].dropna()
+            if len(col_data) > 0:
+                scale = col_data.max() - col_data.min()
+                feature_scales.append(scale)
+        if max(feature_scales) / (min(feature_scales) + 1e-8) > 100:
+            recommendations.append("🔴 **Wide Feature Scale Range** - Consider applying scaling/normalization")
+    
+    # Sample size check
+    if valid_samples < 100:
+        recommendations.append("🔴 **Small Dataset** - Consider cross-validation; risk of overfitting")
+    elif valid_samples < 1000:
+        recommendations.append("🟡 **Moderate Dataset Size** - Stratified k-fold cross-validation recommended")
+    else:
+        recommendations.append("✅ **Adequate Sample Size** - Sufficient data for model training")
+    
+    # Feature-target correlation for regression
+    if problem_type_insight == 'Regression' and numeric_features:
+        correlations = [df[col].corr(df[target_col]) for col in numeric_features]
+        avg_corr = np.mean(np.abs(correlations))
+        if avg_corr < 0.2:
+            recommendations.append("⚠️ **Low Feature-Target Correlation** - Selected features may have weak predictive power")
+    
+    # Display recommendations
+    for i, rec in enumerate(recommendations, 1):
+        st.markdown(f"**{i}.** {rec}", unsafe_allow_html=True)
+    
+    # Model selection guidance
+    st.markdown("<h6 style='color: #667eea;'>🤖 Model Selection Guidance</h6>", unsafe_allow_html=True)
+    
+    if problem_type_insight == 'Classification':
+        guidance_text = """
+        - **Logistic Regression**: Fast baseline, good for linear relationships
+        - **Decision Tree**: Handles non-linear patterns, interpretable
+        - **Random Forest**: Excellent for feature interactions, robust to outliers
+        - **Gradient Boosting**: High performance, but requires careful tuning
+        - **KNN**: Good for local patterns, sensitive to feature scaling
+        - **SVM**: Powerful for complex boundaries, requires scaling
+        - **Naive Bayes**: Fast, works well with text/categorical data
+        """
+    else:
+        guidance_text = """
+        - **Linear Regression**: Simple baseline, interpretable
+        - **Decision Tree Regressor**: Captures non-linear patterns
+        - **Random Forest Regressor**: Handles feature interactions well
+        - **Gradient Boosting Regressor**: High predictive power, needs tuning
+        - **KNN Regressor**: Good for local approximations
+        - **SVR**: Effective for complex non-linear relationships
+        """
+    
+    st.markdown(guidance_text)
+    
     # Quick stats summary
     st.markdown("---")
     st.markdown("<h6 style='color: #667eea;'>Quick Dataset Summary</h6>", unsafe_allow_html=True)
@@ -1121,7 +1280,6 @@ def render_models(df):
         st.metric("Features Selected", len(selected_features))
     
     with summary_col2:
-        valid_samples = len(df.dropna(subset=selected_features + [target_col]))
         st.metric("Valid Samples", valid_samples)
     
     with summary_col3:
@@ -1131,7 +1289,7 @@ def render_models(df):
             st.metric("Target Range", f"{target_data.min():.1f} - {target_data.max():.1f}")
     
     with summary_col4:
-        st.metric("Data Quality", f"{(1 - df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100:.1f}%")
+        st.metric("Data Quality", f"{(1 - missing_pct/100) * 100:.1f}%")
     
     st.markdown("---")
     
