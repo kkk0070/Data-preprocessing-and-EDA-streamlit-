@@ -124,6 +124,57 @@ def delete_pipeline(pipeline_name):
             return False
     return False
 
+# ==================== FEATURE 3: UNDO/REDO FUNCTIONALITY ====================
+
+def init_undo_redo_state():
+    """Initialize undo/redo state in session"""
+    if 'undo_stack' not in st.session_state:
+        st.session_state.undo_stack = []
+    if 'redo_stack' not in st.session_state:
+        st.session_state.redo_stack = []
+    if 'current_df' not in st.session_state:
+        st.session_state.current_df = None
+
+def push_to_undo_stack(df, action_description):
+    """Push dataframe state to undo stack"""
+    if 'undo_stack' not in st.session_state:
+        init_undo_redo_state()
+    
+    st.session_state.undo_stack.append({
+        'df': df.copy(),
+        'action': action_description,
+        'timestamp': datetime.now().strftime("%H:%M:%S")
+    })
+    
+    # Limit stack to 20 items
+    if len(st.session_state.undo_stack) > 20:
+        st.session_state.undo_stack.pop(0)
+    
+    # Clear redo stack on new action
+    st.session_state.redo_stack = []
+
+def undo_action():
+    """Undo last action"""
+    if 'undo_stack' not in st.session_state:
+        init_undo_redo_state()
+    
+    if len(st.session_state.undo_stack) > 0:
+        state = st.session_state.undo_stack.pop()
+        st.session_state.redo_stack.append(state)
+        return state
+    return None
+
+def redo_action():
+    """Redo last undone action"""
+    if 'redo_stack' not in st.session_state:
+        init_undo_redo_state()
+    
+    if len(st.session_state.redo_stack) > 0:
+        state = st.session_state.redo_stack.pop()
+        st.session_state.undo_stack.append(state)
+        return state
+    return None
+
 st.set_page_config(
     page_title="EDA Dashboard",
     page_icon="",
@@ -2159,13 +2210,40 @@ def render_models(df):
 
 
 def main():
+    # Initialize UX state
+    init_undo_redo_state()
+    
     st.sidebar.markdown("""
     <h2 style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
                background-clip: text; text-align: center; padding: 10px;'>
-    Activity selector
+    📊 EDA Dashboard
     </h2>
     """, unsafe_allow_html=True)
+    
+    # Undo/Redo Controls
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("<h4 style='color: #667eea;'>↩️ History</h4>", unsafe_allow_html=True)
+    undo_col, redo_col = st.sidebar.columns(2)
+    with undo_col:
+        if st.button("↶ Undo", use_container_width=True):
+            undo_result = undo_action()
+            if undo_result:
+                st.success(f"Undone: {undo_result['action']}")
+            else:
+                st.info("Nothing to undo")
+    with redo_col:
+        if st.button("↷ Redo", use_container_width=True):
+            redo_result = redo_action()
+            if redo_result:
+                st.success(f"Redone: {redo_result['action']}")
+            else:
+                st.info("Nothing to redo")
+    
+    st.sidebar.markdown(f"<small>Undo: {len(st.session_state.get('undo_stack', []))} | Redo: {len(st.session_state.get('redo_stack', []))}</small>", unsafe_allow_html=True)
+    
+    # Data upload section
+    st.sidebar.markdown("---")
     st.sidebar.markdown("""
     <p style='color: #667eea; text-align: center; font-weight: 600;'>
     Upload a dataset once and then pick the analysis panel.
