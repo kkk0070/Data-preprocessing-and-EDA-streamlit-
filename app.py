@@ -23,14 +23,8 @@ import json
 import os
 from datetime import datetime
 
-<<<<<<< HEAD
 # ==================== FEATURE 1: DATA UPLOAD HISTORY ====================
 
-=======
-# ==================== USER EXPERIENCE FEATURES ====================
-
-# 1. DATA UPLOAD HISTORY MANAGEMENT
->>>>>>> c2ec4aa112b9bcaa17124229f5d054e5f378d0c0
 def get_upload_history_file():
     """Get path to upload history JSON file"""
     return os.path.expanduser("~/.eda_dashboard_history.json")
