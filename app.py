@@ -486,9 +486,18 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+def get_theme_css():
+    return """
+    <style>
+        body {
+            background-color: #0e1117;
+            color: white;
+        }
+    </style>
+    """
 
 # Apply theme CSS
-st.markdown(get_theme_css(), unsafe_allow_html=True)
+st.markdown(get_theme_css(), unsafe_allow_html=True) # type: ignore
 
 
 def render_html_report(path, height=700):
