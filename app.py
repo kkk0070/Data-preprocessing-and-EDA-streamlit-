@@ -853,6 +853,116 @@ def render_preprocess(df):
 
                 feature_cols = [col for col in numeric_cols if col != target_col]
                 if len(feature_cols) > 1:
+                    # ==================== FEATURE INSIGHTS BEFORE SELECTION ====================
+                    st.markdown("---")
+                    st.markdown("<h5 style='color: #764ba2;'>📊 Feature Insights & Recommendations</h5>", unsafe_allow_html=True)
+                    
+                    X = processed_df[feature_cols]
+                    y = processed_df[target_col]
+                    
+                    # Determine if classification or regression
+                    is_classification = processed_df[target_col].dtype == 'object' or len(processed_df[target_col].unique()) < 20
+                    problem_type = "Classification" if is_classification else "Regression"
+                    
+                    # Calculate feature importance scores
+                    if is_classification:
+                        score_func = f_classif
+                        scores = f_classif(X, y)[0]
+                    else:
+                        score_func = f_regression
+                        scores = f_regression(X, y)[0]
+                    
+                    # Create feature importance dataframe
+                    feature_importance_df = pd.DataFrame({
+                        'Feature': feature_cols,
+                        'Importance Score': scores,
+                        'Rank': range(1, len(feature_cols) + 1)
+                    }).sort_values('Importance Score', ascending=False).reset_index(drop=True)
+                    feature_importance_df['Rank'] = range(1, len(feature_importance_df) + 1)
+                    
+                    # Display problem type and insights
+                    insight_col1, insight_col2, insight_col3 = st.columns(3)
+                    with insight_col1:
+                        st.metric("Problem Type", problem_type)
+                    with insight_col2:
+                        st.metric("Total Features", len(feature_cols))
+                    with insight_col3:
+                        recommended_k = max(1, min(5, len(feature_cols)))
+                        st.metric("Recommended Features", recommended_k)
+                    
+                    # Display feature importance table
+                    st.markdown("<h6 style='color: #667eea;'>Feature Importance Scores:</h6>", unsafe_allow_html=True)
+                    st.dataframe(
+                        feature_importance_df.style.highlight_max(subset=['Importance Score'], color='#90EE90'),
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                    
+                    # Feature importance visualization
+                    fig, ax = plt.subplots(figsize=(10, 5))
+                    colors = plt.cm.viridis(np.linspace(0.3, 0.9, len(feature_importance_df)))
+                    bars = ax.barh(feature_importance_df['Feature'], feature_importance_df['Importance Score'], color=colors, edgecolor='#667eea', linewidth=1.5)
+                    ax.set_xlabel('Importance Score', fontweight='bold', fontsize=11)
+                    ax.set_title(f'Feature Importance Scores for {problem_type} Problem', fontsize=12, fontweight='bold', color='#667eea')
+                    ax.grid(axis='x', alpha=0.3)
+                    
+                    # Add value labels on bars
+                    for i, (bar, score) in enumerate(zip(bars, feature_importance_df['Importance Score'])):
+                        ax.text(score, bar.get_y() + bar.get_height()/2, f' {score:.2f}', va='center', fontweight='bold', fontsize=9)
+                    
+                    st.pyplot(fig)
+                    
+                    # Calculate correlations for additional insights
+                    if is_classification:
+                        st.info(f"**Problem Type: {problem_type}**\n\n"
+                               f"This is a **{problem_type}** problem. The importance scores above are calculated using F-statistic for classification.\n\n"
+                               f"**Top 3 Recommended Features:** {', '.join(feature_importance_df['Feature'].head(3).tolist())}\n\n"
+                               f"**Why?** These features have the highest discriminative power to distinguish between target classes. "
+                               f"Using these top features can significantly improve model accuracy while reducing overfitting.")
+                    else:
+                        st.info(f"**Problem Type: {problem_type}**\n\n"
+                               f"This is a **{problem_type}** problem. The importance scores above are calculated using F-statistic for regression.\n\n"
+                               f"**Top 3 Recommended Features:** {', '.join(feature_importance_df['Feature'].head(3).tolist())}\n\n"
+                               f"**Why?** These features have the strongest linear relationship with the target variable. "
+                               f"Using these top features can maximize model performance and reduce noise.")
+                    
+                    # Feature correlation with target
+                    st.markdown("---")
+                    st.markdown("<h6 style='color: #667eea;'>Feature Correlations with Target:</h6>", unsafe_allow_html=True)
+                    
+                    correlations = []
+                    for col in feature_cols:
+                        if is_classification:
+                            # For classification, use the importance score normalized
+                            corr_val = scores[feature_cols.tolist().index(col)] / np.max(scores)
+                        else:
+                            # For regression, calculate actual correlation
+                            corr_val = processed_df[[col, target_col]].corr().iloc[0, 1]
+                        correlations.append({'Feature': col, 'Correlation': corr_val})
+                    
+                    corr_df = pd.DataFrame(correlations).sort_values('Correlation', key=abs, ascending=False)
+                    
+                    fig, ax = plt.subplots(figsize=(10, 5))
+                    colors_corr = ['#2ecc71' if x > 0 else '#e74c3c' for x in corr_df['Correlation']]
+                    bars_corr = ax.barh(corr_df['Feature'], corr_df['Correlation'], color=colors_corr, edgecolor='#667eea', linewidth=1.5)
+                    ax.set_xlabel('Correlation with Target', fontweight='bold', fontsize=11)
+                    ax.set_title(f'Feature Correlation with Target Variable ({target_col})', fontsize=12, fontweight='bold', color='#667eea')
+                    ax.grid(axis='x', alpha=0.3)
+                    ax.axvline(x=0, color='black', linestyle='-', linewidth=0.8)
+                    
+                    # Add value labels
+                    for bar, corr in zip(bars_corr, corr_df['Correlation']):
+                        ax.text(corr, bar.get_y() + bar.get_height()/2, f' {corr:.2f}', va='center', fontweight='bold', fontsize=9)
+                    
+                    st.pyplot(fig)
+                    
+                    st.success("💡 **Insight:** Features with higher importance scores have stronger relationships with the target variable. "
+                              "Select features with high importance scores for better model accuracy.")
+                    
+                    st.markdown("---")
+                    
+                    # ==================== END OF FEATURE INSIGHTS ====================
+                    
                     k_features = st.slider(
                         "Number of features to select:",
                         min_value=1,
@@ -1511,6 +1621,141 @@ def render_models(df):
         st.metric("Data Quality", f"{(1 - missing_pct/100) * 100:.1f}%")
     
     st.markdown("---")
+    
+    # ==================== FEATURE IMPORTANCE INSIGHTS FOR ML MODELS ====================
+    st.markdown("<h4 style='color: #667eea;'>📊 Feature Importance & Recommendations</h4>", unsafe_allow_html=True)
+    
+    try:
+        # Prepare data for feature importance calculation
+        X_temp = df[selected_features].copy()
+        y_temp = df[target_col].copy()
+        
+        # Remove rows with missing values
+        valid_idx_temp = X_temp.notna().all(axis=1) & y_temp.notna()
+        X_temp = X_temp[valid_idx_temp].reset_index(drop=True)
+        y_temp = y_temp[valid_idx_temp].reset_index(drop=True)
+        
+        # Encode categorical features for importance calculation
+        categorical_feature_cols_temp = X_temp.select_dtypes(include=['object', 'category']).columns.tolist()
+        encoders_temp = {}
+        for col in categorical_feature_cols_temp:
+            le = LabelEncoder()
+            X_temp[col] = le.fit_transform(X_temp[col].astype(str))
+            encoders_temp[col] = le
+        
+        # Detect problem type for feature importance scoring
+        is_classification_temp = y_temp.dtype == 'object'
+        if is_classification_temp:
+            y_encoded_temp = LabelEncoder().fit_transform(y_temp.astype(str))
+            score_func_temp = f_classif
+            scores_temp = f_classif(X_temp, y_encoded_temp)[0]
+            problem_label = "Classification"
+        else:
+            unique_vals_temp = len(y_temp.unique())
+            if unique_vals_temp < 20 and y_temp.dtype in ['int64', 'int32']:
+                y_encoded_temp = y_temp.values
+                score_func_temp = f_classif
+                scores_temp = f_classif(X_temp, y_encoded_temp)[0]
+                problem_label = "Classification"
+            else:
+                y_encoded_temp = y_temp.values
+                score_func_temp = f_regression
+                scores_temp = f_regression(X_temp, y_encoded_temp)[0]
+                problem_label = "Regression"
+        
+        # Create feature importance dataframe
+        feature_importance_ml = pd.DataFrame({
+            'Feature': selected_features,
+            'Importance Score': scores_temp,
+            'Rank': range(1, len(selected_features) + 1)
+        }).sort_values('Importance Score', ascending=False).reset_index(drop=True)
+        feature_importance_ml['Rank'] = range(1, len(feature_importance_ml) + 1)
+        
+        # Display metrics
+        ml_insight_col1, ml_insight_col2, ml_insight_col3 = st.columns(3)
+        with ml_insight_col1:
+            st.metric("Problem Type", problem_label)
+        with ml_insight_col2:
+            st.metric("Features Count", len(selected_features))
+        with ml_insight_col3:
+            st.metric("Top Feature", feature_importance_ml.iloc[0]['Feature'])
+        
+        # Display feature importance table
+        st.markdown("<h6 style='color: #667eea;'>Feature Importance Ranking:</h6>", unsafe_allow_html=True)
+        st.dataframe(
+            feature_importance_ml.style.highlight_max(subset=['Importance Score'], color='#90EE90'),
+            use_container_width=True,
+            hide_index=True
+        )
+        
+        # Feature importance visualization
+        fig, ax = plt.subplots(figsize=(10, 5))
+        colors_ml = plt.cm.viridis(np.linspace(0.3, 0.9, len(feature_importance_ml)))
+        bars_ml = ax.barh(feature_importance_ml['Feature'], feature_importance_ml['Importance Score'], 
+                          color=colors_ml, edgecolor='#667eea', linewidth=1.5)
+        ax.set_xlabel('Importance Score', fontweight='bold', fontsize=11)
+        ax.set_title(f'Feature Importance Scores for {problem_label} Problem', fontsize=12, fontweight='bold', color='#667eea')
+        ax.grid(axis='x', alpha=0.3)
+        
+        # Add value labels on bars
+        for bar, score in zip(bars_ml, feature_importance_ml['Importance Score']):
+            ax.text(score, bar.get_y() + bar.get_height()/2, f' {score:.2f}', va='center', fontweight='bold', fontsize=9)
+        
+        st.pyplot(fig)
+        
+        # Feature importance insights
+        top_3_features = feature_importance_ml['Feature'].head(3).tolist()
+        if problem_label == "Classification":
+            st.info(f"**Problem Type: {problem_label}**\n\n"
+                   f"**Top 3 Most Important Features:** {', '.join(top_3_features)}\n\n"
+                   f"**Why?** These features have the highest discriminative power to distinguish between target classes. "
+                   f"These features are most valuable for accurate classification and should be carefully tuned during model training.")
+        else:
+            st.info(f"**Problem Type: {problem_label}**\n\n"
+                   f"**Top 3 Most Important Features:** {', '.join(top_3_features)}\n\n"
+                   f"**Why?** These features have the strongest relationship with the target variable. "
+                   f"They will have the most significant impact on prediction accuracy.")
+        
+        # Feature correlation with target for ML
+        st.markdown("<h6 style='color: #667eea;'>Feature Correlation Analysis:</h6>", unsafe_allow_html=True)
+        
+        correlations_ml = []
+        for col in selected_features:
+            if X_temp[col].dtype in ['int64', 'float64']:
+                if problem_label == "Regression":
+                    corr_val = X_temp[[col]].join(pd.DataFrame({'target': y_encoded_temp})).corr().iloc[0, 1]
+                else:
+                    corr_val = scores_temp[selected_features.index(col)] / np.max(scores_temp)
+            else:
+                corr_val = scores_temp[selected_features.index(col)] / np.max(scores_temp)
+            correlations_ml.append({'Feature': col, 'Correlation': corr_val})
+        
+        corr_ml_df = pd.DataFrame(correlations_ml).sort_values('Correlation', key=abs, ascending=False)
+        
+        fig, ax = plt.subplots(figsize=(10, 5))
+        colors_corr_ml = ['#2ecc71' if x > 0 else '#e74c3c' for x in corr_ml_df['Correlation']]
+        bars_corr_ml = ax.barh(corr_ml_df['Feature'], corr_ml_df['Correlation'], 
+                               color=colors_corr_ml, edgecolor='#667eea', linewidth=1.5)
+        ax.set_xlabel('Normalized Correlation with Target', fontweight='bold', fontsize=11)
+        ax.set_title(f'Feature Correlation with Target Variable ({target_col})', fontsize=12, fontweight='bold', color='#667eea')
+        ax.grid(axis='x', alpha=0.3)
+        ax.axvline(x=0, color='black', linestyle='-', linewidth=0.8)
+        
+        # Add value labels
+        for bar, corr in zip(bars_corr_ml, corr_ml_df['Correlation']):
+            ax.text(corr, bar.get_y() + bar.get_height()/2, f' {corr:.2f}', va='center', fontweight='bold', fontsize=9)
+        
+        st.pyplot(fig)
+        
+        st.success("💡 **Insight:** Features with higher importance scores will have more impact on model predictions. "
+                  "The selected features are ready for model training. Proceed to train your models below.")
+        
+        st.markdown("---")
+        
+    except Exception as e:
+        st.warning(f"Could not calculate feature importance: {str(e)}")
+    
+    # ==================== END OF FEATURE IMPORTANCE INSIGHTS ====================
     
     try:
         # Prepare data
